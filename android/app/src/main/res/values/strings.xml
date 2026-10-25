@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Radiant Billing</string>
+    <string name="title_activity_main">Radiant Billing</string>
+    <string name="package_name">pk.radiantlighting.billing</string>
+    <string name="custom_url_scheme">pk.radiantlighting.billing</string>
+</resources>

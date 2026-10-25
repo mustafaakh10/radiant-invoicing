@@ -1,0 +1,12 @@
+{
+  "appId": "pk.radiantlighting.billing",
+  "appName": "Radiant Billing",
+  "webDir": "www",
+  "android": {
+    "adjustMarginsForEdgeToEdge": "force",
+    "allowMixedContent": false
+  },
+  "plugins": {
+    "CapacitorHttp": { "enabled": false }
+  }
+}
