@@ -29,7 +29,7 @@ RX(r'<link rel="stylesheet" href="https://fonts\.googleapis\.com/css2[^"]*">\n',
 # --- platform bits ---
 R('const LOGO="__LOGO__";', 'const LOGO="img/logo.jpg";')
 R('esc(it.img)', 'esc(imgSrc(it.img))', 2)
-R('esc(p.img)', 'esc(imgSrc(p.img))', 2)
+R('esc(p.img)', 'esc(imgSrc(p.img))', 3)
 R('esc(s.logo||LOGO)', 'esc(imgSrc(s.logo)||LOGO)', 2)
 R('await image(s.logo||LOGO,', 'await image(imgSrc(s.logo)||LOGO,')
 R('  async function image(src,x,y,w,h){\n    if(!src)return false;', '  async function image(src,x,y,w,h){\n    src=imgSrc(src);if(!src)return false;')

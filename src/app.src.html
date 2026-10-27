@@ -134,6 +134,19 @@ select.need{border-color:#d9a13b;background:color-mix(in srgb,#d9a13b 8%,var(--s
 @media (max-width:520px){.orow{grid-template-columns:minmax(0,1fr) auto}.orow input:nth-child(2),.orow input:nth-child(3){grid-column:1/-1}.orow button{grid-row:1;grid-column:2}}
 .vchips{display:flex;flex-wrap:wrap;gap:4px;margin-top:4px}.vchips span{font-size:11px;font-weight:700;border:1px solid var(--line);border-radius:99px;padding:1px 7px;color:var(--muted)}
 .pcard .sp i{font-style:normal;opacity:.75}
+.pnav{display:flex;flex-direction:column;gap:10px;margin-bottom:14px}
+.pnav input{max-width:420px}
+.crumbs{display:flex;flex-wrap:wrap;align-items:center;gap:4px;font-size:13px}
+.crumb{background:none;border:0;padding:4px 6px;border-radius:6px;cursor:pointer;color:var(--accent-ink);font-weight:600}
+.crumb:hover{background:var(--sunk)}.crumb.on{color:var(--ink);cursor:default}.crumbs .sep{color:var(--muted)}
+.ftiles{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:12px}
+.ftile{display:flex;flex-direction:column;gap:6px;text-align:left;background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:10px;cursor:pointer;font:inherit;color:inherit}
+.ftile:hover{border-color:var(--accent)}
+.fpics{display:grid;grid-template-columns:repeat(3,1fr);gap:4px;aspect-ratio:3/1;max-width:100%;background:var(--sunk);border-radius:7px;overflow:hidden}
+.fpics img{width:100%;height:100%;object-fit:contain;background:#fff}
+.fnone{grid-column:1/-1;display:flex;align-items:center;justify-content:center;font-size:22px;font-weight:700;color:var(--muted)}
+.fname{font-weight:700}.fsub{font-size:12px;color:var(--muted)}
+@media (max-width:760px){.ftiles{grid-template-columns:repeat(2,minmax(0,1fr))}}
 /* orders */
 .seg{display:inline-flex;background:var(--sunk);border:1px solid var(--line);border-radius:8px;padding:3px;gap:2px}
 .seg button{border:0;background:none;padding:6px 12px;border-radius:6px;font-weight:600;cursor:pointer;color:var(--muted)}
@@ -467,7 +480,7 @@ function render(){setNav();({docs:vDocs,new:vNew,editor:vEditor,products:vProduc
 function afterData(col){
   if(S.view==="docs"&&col==="docs")refreshList();
   else if(S.view==="docs"&&!S.ready.docs)vDocs();
-  else if(S.view==="products"&&col==="products")renderPList();
+  else if(S.view==="products"&&col==="products"){if(S.pcat&&!S.products.some(p=>catOf(p)===S.pcat)){S.pcat="";S.pser=""}renderPList()}
   else if(S.view==="customers"&&col==="customers")renderCList();
   else if(S.view==="editor"&&(col==="settings"))updatePreview();
   else if(S.view==="editor"&&col==="docs")renderEdSteps();
@@ -974,7 +987,7 @@ function findMentions(lc){
     while((m=re.exec(lc))){const start=m.index+m[1].length;out.push({p:ph.p,start,end:start+ph.text.length,w:ph.w,vid:ph.vid})}}
   out.sort((a,b)=>a.start-b.start||b.w-a.w);
   const kept=[];for(const m of out){const last=kept.at(-1);
-    if(last&&m.start<last.end){if(m.w>last.w&&m.p!==last.p)kept[kept.length-1]=m;continue}
+    if(last&&m.start<last.end){if(m.start===last.start&&m.end===last.end&&m.p!==last.p){(last.alts=last.alts||[]).push(m.p);continue}if(m.w>last.w&&m.p!==last.p)kept[kept.length-1]=m;continue}
     if(last&&last.p===m.p&&!/\d/.test(lc.slice(last.end,m.start))){last.end=m.end;if(m.vid)last.vid=m.vid;continue}
     kept.push(m)}
   return kept;
@@ -989,7 +1002,8 @@ function localParse(text,d){
     const lo=i?ms[i-1].end:0,hi=i<ms.length-1?ms[i+1].start:lc.length;
     /* the size/options for this product sit between the previous and next product mention */
     const seg=lc.slice(lo,hi).split("");for(let k=mt.start-lo;k<mt.end-lo;k++)seg[k]=" ";
-    const r=readVariant(mt.p,seg.join(""));
+    let r=readVariant(mt.p,seg.join(""));
+    if(hasVar(mt.p)&&!r.v&&mt.alts)for(const q of mt.alts){const r2=readVariant(q,seg.join(""));if(r2.v){mt.p=q;r=r2;break}}
     if(!r.v&&mt.vid)r.v=varOf(mt.p,mt.vid);
     for(const[a,b]of r.spans)wipe(lo+a,lo+b);
     wipe(mt.start,mt.end);
@@ -1009,7 +1023,7 @@ function localParse(text,d){
         if(n.qtyish&&qty==null){qty=n.v;n.used=true;continue}
         if(rate==null&&(n.v>=100||qty!=null)){rate=n.v;n.used=true;continue}
         if(qty==null&&n.v<100){qty=n.v;n.used=true}}
-      items.push({productId:mt.p.id,variantId:r.v?.id||null,options:r.opts,description:mt.p.name,qty,rate});
+      items.push({productId:mt.p.id,variantId:r.v?.id||null,options:r.opts,description:mt.p.name,qty,rate,alts:(mt.alts||[]).filter(x=>x!==mt.p&&hasVar(x)).map(x=>x.id)});
     });
   }else{
     const words=B.replace(/(?<![a-z])\d[\d,]*(?:\.\d+)?\s*(?:k|pcs|pc|nos|x)?\b/g," ").replace(/[^a-z0-9\s\-\/×.]/g," ").split(/\s+/).filter(w=>w&&!STOP.has(w));
@@ -1040,6 +1054,8 @@ function applyParsed(res,d,done,asks){
     if(!p){d.items.push({pid:"",vid:"",opts:{},name:String(it.description||"Item"),spec:"",warranty:"",img:"",unit:"Pcs",qty:q??1,qtyDel:q??1,rate:rate??0});
       asks.push(`Added “${it.description||"Item"}”, not in your catalogue. Check the name and rate.`);S.ed.lastItem=d.items.length-1;continue}
     const v=varOf(p,it.variantId);
+    if(hasVar(p)&&!v&&it.alts?.length){const all=[p,...it.alts.map(id=>S.products.find(x=>x.id===id)).filter(Boolean)];
+      asks.push(`Which one? ${all.map(x=>`${x.name}: ${x.variants.map(y=>y.label).join(" · ")}`).join(" | ")}. Type e.g. “${q??10} ${shortKey(p)} ${p.variants[Math.min(1,p.variants.length-1)].label}”.`);continue}
     if(hasVar(p)&&!v){asks.push(`${p.name}: which size? ${p.variants.map(x=>x.label).join(" · ")}. Type e.g. “${q??10} ${shortKey(p)} ${p.variants[Math.min(1,p.variants.length-1)].label}${rate?" "+rate:""}”.`);continue}
     const opts={};for(const o of optsFor(p,v)){const val=it.options?.[o.name];if(val&&o.values.includes(val))opts[o.name]=val}
     const label=[p.name,v?.label,...Object.values(opts)].filter(Boolean).join(" · ");
@@ -1352,17 +1368,50 @@ function vProducts(){
   $("#view").innerHTML=`<div class="spread" style="margin-bottom:16px"><div><div class="eyebrow">Catalogue</div><h1>Products</h1></div><button class="btn pri" data-act="newprod">Add product</button></div>
   <div class="two"><div id="plist"></div><div class="formside" id="pform"></div></div>`;renderPList();renderPForm();
 }
-function renderPList(){const el=$("#plist");if(!el)return;
-  el.innerHTML=S.products.length?`<div class="pgrid">${S.products.map(p=>`<div class="pcard"><div class="ph">${p.img?`<img src="${esc(p.img)}" alt="">`:"<span>No photo</span>"}</div>
+const catOf=p=>String(p.category||"").trim()||"Uncategorised";
+const serOf=p=>String(p.series||"").trim();
+const pCard=p=>`<div class="pcard"><div class="ph">${p.img?`<img src="${esc(p.img)}" alt="">`:"<span>No photo</span>"}</div>
    <div class="bd"><div class="nm">${esc(p.name)}</div>${p.spec?`<div class="sp">${esc(p.spec)}</div>`:""}${p.warranty?(warrantyText(p.warranty)?`<div class="sp wr">${esc(warrantyText(p.warranty))}</div>`:`<div class="sp">${esc(p.warranty)} · not printed (under 1 year)</div>`):""}${p.keywords?`<div class="sp">Shorthand: ${esc(p.keywords)}</div>`:""}
    ${hasVar(p)?`<div class="vchips">${p.variants.map(v=>`<span>${esc(v.label)}</span>`).join("")}</div>${(p.options||[]).filter(o=>o.values?.length).map(o=>`<div class="sp">${esc(o.name)}: ${esc(o.values.join(", "))}${o.only?.length?` <i>(${esc(o.only.join(", "))} only)</i>`:""}</div>`).join("")}`:""}
-   <div class="spread pr"><span>${hasVar(p)?(()=>{const ps=p.variants.map(v=>varPrice(p,v)).filter(Boolean);return ps.length?`From PKR ${fmt(Math.min(...ps))}`:`<span class="q low">Prices not set</span>`})():`PKR ${fmt(p.price)}`} / ${esc(p.unit||"Pcs")}</span><button class="btn sm" data-act="editprod" data-id="${p.id}">Edit</button></div></div></div>`).join("")}</div>`
-   :`<div class="card empty">${S.ready.products||!DB?"No products yet. Add your first one with a photo, price and the shorthand you use for it.":"Loading catalogue…"}</div>`}
+   <div class="spread pr"><span>${hasVar(p)?(()=>{const ps=p.variants.map(v=>varPrice(p,v)).filter(Boolean);return ps.length?`From PKR ${fmt(Math.min(...ps))}`:`<span class="q low">Prices not set</span>`})():`PKR ${fmt(p.price)}`} / ${esc(p.unit||"Pcs")}</span><button class="btn sm" data-act="editprod" data-id="${p.id}">Edit</button></div></div></div>`;
+const pGrid=list=>`<div class="pgrid">${list.map(pCard).join("")}</div>`;
+const byName=(a,b)=>String(a).localeCompare(String(b),undefined,{numeric:true});
+function folderTile(act,key,title,list,sub){const pics=list.filter(p=>p.img).slice(0,3);
+  return `<button class="ftile" data-act="${act}" data-c="${esc(key)}"><span class="fpics">${pics.length?pics.map(p=>`<img src="${esc(p.img)}" alt="">`).join(""):`<span class="fnone">${esc(title.slice(0,1))}</span>`}</span>
+    <span class="fname">${esc(title)}</span><span class="fsub">${sub}</span></button>`}
+function renderPList(){const el=$("#plist");if(!el)return;
+  if(!S.products.length){el.innerHTML=`<div class="card empty">${S.ready.products||!DB?"No products yet. Add your first one with a photo, price and the shorthand you use for it.":"Loading catalogue…"}</div>`;return}
+  if(!$("#pbody"))el.innerHTML=`<div class="pnav"><input id="pq" type="search" placeholder="Search all products, sizes, codes" value="${esc(S.pq||"")}" aria-label="Search products"><div class="crumbs" id="crumbs"></div></div><div id="pbody"></div>`;
+  renderPBody();
+}
+function renderPBody(){const body=$("#pbody"),cr=$("#crumbs");if(!body)return;
+  const q=String(S.pq||"").trim().toLowerCase(),cat=S.pcat||"",ser=S.pser||"";
+  const c=[`<button class="crumb" data-act="pcat" data-c="">All products</button>`];
+  if(!q&&cat)c.push(`<button class="crumb" data-act="pcat" data-c="${esc(cat)}">${esc(cat)}</button>`);
+  if(!q&&cat&&ser)c.push(`<span class="crumb on">${esc(ser)}</span>`);
+  cr.innerHTML=q?`<span class="crumb on">Search results</span>`:c.join(`<span class="sep">›</span>`);
+  if(q){const hits=S.products.filter(p=>`${p.name} ${p.spec||""} ${p.keywords||""} ${p.category||""} ${p.series||""} ${p.model||""} ${(p.variants||[]).map(v=>`${v.label} ${v.model||""}`).join(" ")}`.toLowerCase().includes(q)).sort((a,b)=>byName(a.name,b.name));
+    body.innerHTML=hits.length?pGrid(hits):`<div class="card empty">No products match “${esc(S.pq)}”.</div>`;return}
+  if(!cat){const g=new Map();for(const p of S.products){const k=catOf(p);if(!g.has(k))g.set(k,[]);g.get(k).push(p)}
+    const keys=[...g.keys()].sort((a,b)=>(a==="Uncategorised")-(b==="Uncategorised")||byName(a,b));
+    body.innerHTML=`<div class="ftiles">${keys.map(k=>{const l=g.get(k),ns=new Set(l.map(serOf).filter(Boolean)).size;return folderTile("pcat",k,k,l,`${l.length} product${l.length===1?"":"s"}${ns?` · ${ns} series`:""}`)}).join("")}</div>`;return}
+  const inCat=S.products.filter(p=>catOf(p)===cat);
+  if(!ser){const g=new Map(),loose=[];for(const p of inCat){const k=serOf(p);if(!k){loose.push(p);continue}if(!g.has(k))g.set(k,[]);g.get(k).push(p)}
+    const keys=[...g.keys()].sort(byName);
+    body.innerHTML=(keys.length?`<div class="ftiles">${keys.map(k=>folderTile("pser",k,k,g.get(k),`${g.get(k).length} product${g.get(k).length===1?"":"s"}`)).join("")}</div>`:"")
+      +(loose.length?`${keys.length?`<div class="eyebrow" style="margin:18px 0 10px">Not in a series</div>`:""}${pGrid(loose.sort((a,b)=>byName(a.name,b.name)))}`:"");
+    if(!inCat.length)body.innerHTML=`<div class="card empty">This folder is empty.</div>`;return}
+  const list=inCat.filter(p=>serOf(p)===ser).sort((a,b)=>byName(a.name,b.name));
+  body.innerHTML=list.length?pGrid(list):`<div class="card empty">This series is empty.</div>`;
+}
 function renderPForm(){const el=$("#pform");if(!el)return;const p=S.pform;
   if(!p){el.innerHTML=`<div class="card muted" style="font-size:13px">Pick a product to edit, or add a new one. The <b>shorthand</b> field teaches quick entry what you call it, e.g. “trail, step light”.</div>`;return}
   el.innerHTML=`<div class="card stack"><h2>${p.id?"Edit product":"New product"}</h2>
    <div class="photo-pick">${p.img?`<img src="${esc(p.img)}" alt="">`:`<div class="ph0">No photo</div>`}<div class="stack" style="gap:6px"><label class="btn sm" style="display:inline-block">Upload photo<input type="file" accept="image/*" id="pPhoto" hidden></label>${p.img?`<button class="btn sm ghost" data-act="rmphoto">Remove photo</button>`:""}<span id="pPhotoMsg" class="muted" style="font-size:12px"></span></div></div>
    <label class="f">Name on document<input data-pf="name" value="${esc(p.name)}" placeholder="LED Wall / Step Light – Trail Series"></label>
+   <div class="g2"><label class="f">Category (folder)<input data-pf="category" list="catlist" value="${esc(p.category||"")}" placeholder="e.g. SMD, COB, Strip"></label><label class="f">Series<input data-pf="series" list="serlist" value="${esc(p.series||"")}" placeholder="e.g. Rayzen, Linea"></label></div>
+   <datalist id="catlist">${[...new Set(S.products.map(x=>String(x.category||"").trim()).filter(Boolean))].sort(byName).map(x=>`<option value="${esc(x)}">`).join("")}</datalist>
+   <datalist id="serlist">${[...new Set(S.products.filter(x=>!p.category||String(x.category||"").trim()===String(p.category).trim()).map(x=>String(x.series||"").trim()).filter(Boolean))].sort(byName).map(x=>`<option value="${esc(x)}">`).join("")}</datalist>
    <label class="f">Specs line<input data-pf="spec" value="${esc(p.spec)}" placeholder="3W · 140 lm · CRI >80 · IP65"></label>
    <label class="f">Warranty<input data-pf="warranty" list="wlist" value="${esc(p.warranty||"")}" placeholder="e.g. 2 years replacement warranty"><span class="muted" style="font-weight:400">Printed only when it's 1 year or more. Leave blank or under a year and it stays off the document.</span></label>
    <div class="g2 keep"><label class="f">Price (PKR)<input data-pf="price" inputmode="decimal" value="${esc(p.price)}"></label><label class="f">Unit<input data-pf="unit" value="${esc(p.unit||"Pcs")}"></label></div>
@@ -1470,19 +1519,21 @@ document.addEventListener("click",async e=>{
     case"edconvert":if(S.ed.dirty&&!(await saveDoc()))break;convert(S.ed.doc,b.dataset.to);break;
     case"savecust":{const c=S.ed.doc.customer;if(!c.name.trim()){toast("Enter a customer name first");break}
       const cid=c.id||uid("c");c.id=cid;await put("customers",cid,{name:c.name,attn:c.attn||"",phone:c.phone||"",address:c.address||"",ntn:c.ntn||""});$("#custPick").innerHTML=custOptions(cid);toast("Customer saved");break}
-    case"newprod":S.pform={id:"",name:"",spec:"",warranty:"",price:"",unit:"Pcs",model:"",keywords:"",img:"",variants:[],options:[]};S.armed=null;renderPForm();$("#pform").scrollIntoView({block:"nearest"});break;
+    case"newprod":S.pform={id:"",name:"",category:S.pcat&&S.pcat!=="Uncategorised"?S.pcat:"",series:S.pser||"",spec:"",warranty:"",price:"",unit:"Pcs",model:"",keywords:"",img:"",variants:[],options:[]};S.armed=null;renderPForm();$("#pform").scrollIntoView({block:"nearest"});break;
     case"editprod":S.pform=clone(S.products.find(p=>p.id===id));S.pform.variants=S.pform.variants||[];S.pform.options=(S.pform.options||[]).map(o=>({name:o.name||"",values:(o.values||[]).join(", "),only:(o.only||[]).join(", ")}));renderPForm();$("#pform").scrollIntoView({block:"nearest"});break;
     case"addvar":S.pform.variants.push({id:uid("v"),label:"",price:"",model:"",spec:""});renderPForm();document.querySelector(`[data-vf="${S.pform.variants.length-1}.label"]`)?.focus();break;
     case"rmvar":S.pform.variants.splice(+b.dataset.i,1);renderPForm();break;
     case"addopt":S.pform.options.push({name:"",values:"",only:""});renderPForm();document.querySelector(`[data-of="${S.pform.options.length-1}.name"]`)?.focus();break;
     case"rmopt":S.pform.options.splice(+b.dataset.i,1);renderPForm();break;
+    case"pcat":S.pcat=b.dataset.c||"";S.pser="";S.pq="";if($("#pq"))$("#pq").value="";renderPBody();$("#plist").scrollIntoView({block:"start",behavior:"smooth"});break;
+    case"pser":S.pser=b.dataset.c||"";renderPBody();$("#plist").scrollIntoView({block:"start",behavior:"smooth"});break;
     case"cancelprod":S.pform=null;renderPForm();break;
     case"rmphoto":S.pform.img="";renderPForm();break;
     case"saveprod":{const p=S.pform;if(!p.name.trim()){toast("Give the product a name");break}const pid=p.id||uid("p");
       const list=x=>String(x||"").split(",").map(y=>y.trim()).filter(Boolean);
       const variants=(p.variants||[]).filter(v=>String(v.label||"").trim()).map(v=>({id:v.id||uid("v"),label:String(v.label).trim(),price:num(v.price),model:String(v.model||"").trim(),spec:String(v.spec||"").trim()}));
       const options=(p.options||[]).filter(o=>String(o.name||"").trim()&&list(o.values).length).map(o=>({name:String(o.name).trim(),values:list(o.values),only:list(o.only)}));
-      await put("products",pid,{name:p.name.trim(),spec:p.spec||"",warranty:(p.warranty||"").trim(),price:num(p.price),unit:p.unit||"Pcs",model:p.model||"",keywords:p.keywords||"",img:p.img||"",variants,options});S.pform=null;renderPForm();toast("Product saved");break}
+      await put("products",pid,{name:p.name.trim(),category:String(p.category||"").trim(),series:String(p.series||"").trim(),spec:p.spec||"",warranty:(p.warranty||"").trim(),price:num(p.price),unit:p.unit||"Pcs",model:p.model||"",keywords:p.keywords||"",img:p.img||"",variants,options});S.pform=null;renderPForm();toast("Product saved");break}
     case"delprod":if(S.armed===S.pform?.id){await del("products",S.pform.id);S.pform=null;S.armed=null;renderPForm();toast("Product deleted")}else{S.armed=S.pform.id;renderPForm()}break;
     case"newcust":S.cform={id:"",name:"",attn:"",phone:"",address:"",ntn:""};S.armed=null;renderCForm();break;
     case"editcust":S.cform=clone(S.customers.find(c=>c.id===id));renderCForm();break;
@@ -1501,6 +1552,7 @@ document.addEventListener("input",e=>{
   const t=e.target;
   if(t.id==="dq"){S.q=t.value;refreshList();return}
   if(t.id==="aiText"&&S.ed){S.ed.aiText=t.value;return}
+  if(t.id==="pq"){S.pq=t.value;renderPBody();return}
   if(t.dataset.pf&&S.pform){S.pform[t.dataset.pf]=t.value;return}
   if(t.dataset.vf&&S.pform){const[i,k]=t.dataset.vf.split(".");S.pform.variants[+i][k]=t.value;return}
   if(t.dataset.of&&S.pform){const[i,k]=t.dataset.of.split(".");S.pform.options[+i][k]=t.value;return}
@@ -1530,7 +1582,7 @@ document.addEventListener("change",async e=>{
       let n=0;for(const p of list){if(!p||!p.name)continue;const rec={...p};const id=String(rec.id||uid("p"));delete rec.id;
         if(typeof rec.img==="string"&&rec.img.startsWith("data:")){try{rec.img=await storeImage(await (await fetch(rec.img)).blob())}catch{rec.img=""}}
         const old=S.products.find(x=>x.id===id);if(old?.img&&!rec.img)rec.img=old.img;
-        await put("products",id,{spec:"",warranty:"",price:0,unit:"Pcs",model:"",keywords:"",img:"",variants:[],options:[],...rec});n++}
+        await put("products",id,{category:"",series:"",spec:"",warranty:"",price:0,unit:"Pcs",model:"",keywords:"",img:"",variants:[],options:[],...rec});n++}
       msg.textContent=`Imported ${n} product${n===1?"":"s"}.`;toast(`Imported ${n} product${n===1?"":"s"}`)}
     catch(e){msg.textContent=e.message&&!/JSON/.test(e.message)?e.message:"That file isn't a product file."}t.value="";return}
 });
