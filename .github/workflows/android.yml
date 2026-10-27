@@ -1,8 +1,7 @@
 name: Build Android APK
 
 on:
-  push:
-    branches: [main]
+  # Manual only for now: Actions tab → Build Android APK → Run workflow
   workflow_dispatch:
 
 permissions:
