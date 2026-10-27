@@ -361,6 +361,8 @@ function inWords(n){n=Math.round(Math.abs(Number(n)||0));if(!n)return"Zero Rupee
   if(n)p.push(w999(n));return p.join(" ")+" Rupees Only"}
 const num=v=>{const n=parseFloat(String(v).replace(/,/g,""));return Number.isFinite(n)?n:0};
 function lineAmt(it){return Math.round(num(it.qty)*num(it.rate))}
+/* a line shows its own photo, or the product's current photo (so photos added later appear on old quotes) */
+const lineImg=it=>{const v=it.img||(it.pid&&S.products.find(p=>p.id===it.pid)?.img)||"";return typeof imgSrc==="function"?imgSrc(v):v};
 const slashOn=d=>!!d.slash&&d.type!=="DN";
 const isSlashed=(d,it)=>slashOn(d)&&num(it.list)>num(it.rate);
 function calc(d){
@@ -399,7 +401,7 @@ function docHTML(d){
     ?`<div class="p-c0">#</div>${im?'<div class="p-ctr">ITEM</div>':""}<div class="p-dsc">DESCRIPTION</div><div class="p-ctr">UNIT</div><div class="p-ctr">QTY ORDERED</div><div class="p-ctr">QTY DELIVERED</div>`
     :`<div class="p-c0">#</div>${im?'<div class="p-ctr">ITEM</div>':""}<div class="p-dsc">DESCRIPTION</div><div class="p-ctr">QTY</div><div class="p-ctr">UNIT</div><div class="p-rt">RATE (PKR)</div><div class="p-am">AMOUNT (PKR)</div>`;
   const rows=d.items.length?d.items.map((it,i)=>{
-    const img=im?`<div>${it.img?`<img class="p-img" src="${esc(it.img)}" alt="">`:'<div class="p-noimg"></div>'}</div>`:"";
+    const li=lineImg(it),img=im?`<div>${li?`<img class="p-img" src="${esc(li)}" alt="">`:'<div class="p-noimg"></div>'}</div>`:"";
     const desc=`<div class="p-dsc"><div class="p-nm">${esc(it.name||"—")}</div>${it.spec?`<div class="p-sp">${esc(it.spec)}</div>`:""}${warrantyText(it.warranty)?`<div class="p-wr">${esc(warrantyText(it.warranty))}</div>`:""}</div>`;
     return dn
       ?`<div class="p-tr ${im?"im":"ni"}" style="grid-template-columns:${cols}"><div class="p-c0">${i+1}</div>${img}${desc}<div class="p-v p-ctr">${esc(it.unit||"Pcs")}</div><div class="p-v p-ctr">${fmt(it.qty)}</div><div class="p-v b p-ctr">${fmt(it.qtyDel)}</div></div>`
@@ -669,7 +671,7 @@ function itemsHTML(d){
   const dn=d.type==="DN";
   if(!d.items.length)return`<div class="muted" style="font-size:13px">No items yet. Use quick entry above or add one.</div>`;
   return d.items.map((it,i)=>`<div class="item" data-i="${i}">
-    <div class="item-top"><span class="idx">${i+1}</span>${it.img?`<img class="thumb" src="${esc(it.img)}" alt="">`:""}<select data-act="pick" data-i="${i}" aria-label="Catalogue product">${prodOptions(it.pid)}</select><button class="btn sm ghost danger" data-act="rmitem" data-i="${i}">Remove</button></div>
+    <div class="item-top"><span class="idx">${i+1}</span>${lineImg(it)?`<img class="thumb" src="${esc(lineImg(it))}" alt="">`:""}<select data-act="pick" data-i="${i}" aria-label="Catalogue product">${prodOptions(it.pid)}</select><button class="btn sm ghost danger" data-act="rmitem" data-i="${i}">Remove</button></div>
     ${variantPickers(it,i)}
     <input data-f="items.${i}.name" value="${esc(it.name)}" placeholder="Description" aria-label="Description">
     <input data-f="items.${i}.spec" value="${esc(it.spec)}" placeholder="Specs line · e.g. 3W · IP65" aria-label="Specs">
@@ -684,7 +686,7 @@ const hasVar=p=>Array.isArray(p?.variants)&&p.variants.length>0;
 const varOf=(p,vid)=>hasVar(p)&&vid?p.variants.find(v=>v.id===vid)||null:null;
 const optsFor=(p,v)=>(p?.options||[]).filter(o=>o&&o.name&&Array.isArray(o.values)&&o.values.length&&(!o.only?.length||(v&&o.only.some(x=>String(x).toLowerCase()===String(v.label).toLowerCase()))));
 function composeSpec(p,v,opts){
-  if(!hasVar(p))return p?.spec||"";
+  if(!hasVar(p))return[p?.spec||"",...optsFor(p,null).map(o=>opts?.[o.name]).filter(Boolean)].filter(Boolean).join("  ·  ");
   const parts=[];if(v)parts.push(v.spec||v.label);
   for(const o of optsFor(p,v))if(opts?.[o.name])parts.push(opts[o.name]);
   if(p.spec)parts.push(p.spec);
@@ -1277,7 +1279,7 @@ async function buildPDF(d,env={}){
     if(y+rowH>LIMIT){y=tableHead(newPage())}
     const cy=y+(rowH-16)/2,v={size:10,lh:1.6};
     tx(String(i+1),56,cy,{...v,color:GR});
-    if(im){if(!(it.img&&await image(it.img,79.4,y+(rowH-57)/2,57,57)))rect(79.4,y+(rowH-57)/2,57,57,BOX,3)}
+    if(im){if(!(lineImg(it)&&await image(lineImg(it),79.4,y+(rowH-57)/2,57,57)))rect(79.4,y+(rowH-57)/2,57,57,BOX,3)}
     const by=y+(rowH-blockH)/2;tx(it.name||"—",descX,by,{size:10,style:"bold",w:descW});
     if(it.spec)tx(it.spec,descX,by+nameH+3,{size:8,color:GR,w:descW});
     if(wt)tx(wt,descX,by+nameH+specH+2,{size:8,color:G,w:descW});
