@@ -954,7 +954,7 @@ function splitClauses(txt){
 const looksLikeItems=(c,d)=>/\d/.test(c)&&(S.products.some(p=>`${p.name} ${p.keywords||""} ${p.model||""} ${(p.variants||[]).map(v=>v.model||"").join(" ")}`.toLowerCase().split(/[^a-z0-9]+/).filter(w=>w.length>2&&!STOP.has(w)).some(w=>c.toLowerCase().includes(w)))||!d.items.length||/\b\d+\s*w\b/i.test(c));
 
 /* ---------- built-in order reader (no AI): catalogue words + sizes + options + quantities + rates ---------- */
-const GENERIC=new Set("led light lights series downlight downlights black white warm cool lamp model the and with for pcs pc set spot".split(" "));
+const GENERIC=new Set("led light lights series downlight downlights black white warm cool neutral natural lamp model the and with for pcs pc set spot strip strips roll rope red green blue pink orange yellow purple gold silver grey gray brown".split(" "));
 function catIndex(){
   const tok=s=>String(s||"").toLowerCase().match(/[a-z][a-z0-9\-]{2,}/g)||[];
   const phrases=[],count=new Map();
