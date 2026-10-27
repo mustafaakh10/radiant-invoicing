@@ -699,7 +699,12 @@ function variantAliases(v){const a=new Set(),L=String(v.label||"").toLowerCase()
   if(L){a.add(L);a.add(L.replace(/\s+/g,""))}for(const c of modelCodes(v.model))a.add(c);
   const w=(String(`${v.label} ${v.spec||""}`).match(/(\d+(?:\.\d+)?)\s*w\b/i)||[])[1];if(w){a.add(w+"w");a.add(w+"watt")}
   return[...a].filter(x=>x.length>=2)}
-function optionAliases(val){const v=String(val).toLowerCase().trim(),a=new Set([v,v.replace(/\s+/g,"")]);let m;
+function optionAliases(val,name){const v=String(val).toLowerCase().trim(),a=new Set([v,v.replace(/\s+/g,"")]);let m;
+  /* colour-temperature words ("Warm / Neutral / White") also answer to their Kelvin values and common names */
+  if(/cct|colou?r\s*temp|light\s*colou?r|^colou?r$|^light$/i.test(String(name||""))){
+    if(/^(warm|warm white|ww|yellow)$/.test(v))["warm","warm white","ww","yellow","3000k","2700k","3000"].forEach(x=>a.add(x));
+    else if(/^(neutral|natural|natural white|neutral white|nw)$/.test(v))["neutral","natural","natural white","neutral white","nw","4000k","4000"].forEach(x=>a.add(x));
+    else if(/^(white|cool|cool white|daylight|day light|cw)$/.test(v))["white","cool","cool white","daylight","day light","cw","white light","6000k","6500k","6000"].forEach(x=>a.add(x));}
   if((m=v.match(/^(\d{4})\s*k$/))){const t=+m[1];a.add(m[1]+"k");
     if(t<=3500)["warm","warm white","ww","yellow"].forEach(x=>a.add(x));else if(t<=4500)["natural","neutral","natural white","nw","cool day"].forEach(x=>a.add(x));else["cool","cool white","daylight","day light","cw","white light"].forEach(x=>a.add(x))}
   if((m=v.match(/^(\d+)\s*°$/)))a.add(m[1]+"°");
@@ -712,7 +717,7 @@ function readVariant(p,seg){
     if(best){out.v=best.v;out.spans.push([best.at,best.at+best.len])}}
   let rest=seg;const cut=(a,b)=>{rest=rest.slice(0,a)+" ".repeat(b-a)+rest.slice(b)};if(out.spans[0])cut(...out.spans[0]);
   /* longest match first across all options, so "cool white" wins over "white" */
-  const cands=[];for(const o of optsFor(p,out.v||null).concat(out.v?[]:(p.options||[]).filter(o=>o.only?.length)))for(const val of o.values)for(const al of optionAliases(val))cands.push({o,val,al});
+  const cands=[];for(const o of optsFor(p,out.v||null).concat(out.v?[]:(p.options||[]).filter(o=>o.only?.length)))for(const val of o.values)for(const al of optionAliases(val,o.name))cands.push({o,val,al});
   cands.sort((a,b)=>b.al.length-a.al.length);
   for(const c of cands){if(c.o.name in out.opts)continue;const h=wordAt(rest,c.al);if(h){out.opts[c.o.name]=c.val;out.spans.push([h.at,h.at+h.len]);cut(h.at,h.at+h.len)}}
   /* colour words like "white light" can mean CCT or finish: if both hit the same words, keep the explicit one */
@@ -735,7 +740,8 @@ const MONTHS={jan:1,feb:2,mar:3,apr:4,may:5,jun:6,jul:7,aug:8,sep:9,sept:9,oct:1
 function parseNum(str){const m=String(str).match(/(\d[\d,]*(?:\.\d+)?)\s*(k|lac|lakh|m)?\b/i);if(!m)return null;let n=parseFloat(m[1].replace(/,/g,""));
   const u=(m[2]||"").toLowerCase();if(u==="k")n*=1e3;if(u==="lac"||u==="lakh")n*=1e5;if(u==="m")n*=1e6;return n}
 /* number in a clause after removing item refs, wattage, percentages and dates */
-function amountIn(c){return parseNum(c.replace(/\b(?:item|line|no\.?)\s*#?\d+\b|#\d+\b/gi," ").replace(/\b\d+(?:\.\d+)?\s*(?:w|watt|watts|k(?=\s*(?:cct|kelvin)))\b/gi," ").replace(/\b\d+(?:\.\d+)?\s*%/g," ").replace(/\b\d+(?:st|nd|rd|th)\b/gi," "))}
+function stripNames(t){const n=normOrder(t);if(typeof findMentions!=="function"||!S.products?.length)return n;const a=n.split("");for(const m of findMentions(n))for(let i=m.start;i<m.end;i++)a[i]=" ";return a.join("")}
+function amountIn(c){c=stripNames(c);return parseNum(c.replace(/\b(?:item|line|no\.?)\s*#?\d+\b|#\d+\b/gi," ").replace(/\b\d+(?:\.\d+)?\s*(?:w|watt|watts|k(?=\s*(?:cct|kelvin)))\b/gi," ").replace(/\b\d+(?:\.\d+)?\s*%/g," ").replace(/\b\d+(?:st|nd|rd|th)\b/gi," "))}
 function pctIn(c){const m=c.match(/(\d+(?:\.\d+)?)\s*(?:%|percent\b|pc\b)/i);return m?+m[1]:null}
 function parseDate(c,base){
   const b=base||todayISO();let m;
@@ -774,7 +780,7 @@ function itemsIn(c,d,loose){
 }
 let LASTAMB=null;
 const ambAsk=d=>{const h=LASTAMB;return h&&h.length>1?`Which one? ${h.map(i=>`item ${i+1}: ${lineLabel(d.items[i])}`).join(" · ")}. Add the size or colour, or say “item ${h[0]+1}”.`:ASK};
-function stripOptionWords(t){let x=" "+t+" ";const al=[];for(const p of S.products)for(const o of p.options||[])for(const v of o.values||[])al.push(...optionAliases(v));
+function stripOptionWords(t){let x=" "+t+" ";const al=[];for(const p of S.products)for(const o of p.options||[])for(const v of o.values||[])al.push(...optionAliases(v,o.name));
   al.sort((a,b)=>b.length-a.length);for(const a of al)x=x.replace(new RegExp(`(^|[^a-z0-9°])${escRe(a)}(?=$|[^a-z0-9°])`,"g"),"$1 ");
   return x.replace(/\b(cct|colou?r|finish|beam)\b/g," ").replace(/\s+/g," ").trim()}
 /* null = ambiguous, [] = names a product that isn't on this document, else the line indexes */
@@ -1042,7 +1048,7 @@ function applyParsed(res,d,done,asks){
     const row=itemFromProduct(p,q??1,rate??null,v?.id,opts);d.items.push(row);S.ed.lastItem=d.items.length-1;
     done.push(`Added ${fmt(row.qty)} × ${label} @ ${fmt(row.rate)}${q==null?" (qty not given, set to 1)":""}`);
     const miss=optsFor(p,v).filter(o=>!opts[o.name]).map(o=>o.name);
-    if(miss.length)asks.push(`${label}: ${miss.join(" and ")} not chosen. Pick below, or type e.g. “${shortKey(p)} ${v?.label||""} ${optsFor(p,v).filter(o=>!opts[o.name]).map(o=>o.values[0]).join(" ")}”.`.replace(/\s+”/,"”"));
+    if(miss.length)asks.push(`${label}: ${miss.join(" and ")} not chosen. Pick below, or type e.g. “${shortKey(p)} ${v?.label||""} ${optsFor(p,v).filter(o=>!opts[o.name]).map(o=>o.values[0]).join(" ")}”.`.replace(/\s+”/,"”").replace(/ {2,}/g," "));
     if(!num(row.rate)&&d.type!=="DN")asks.push(`${label}: no price set. Type “${shortKey(p)} ${v?.label||""} rate 1450” or add the price in Products.`.replace(/\s+rate/," rate"));
   }
 }
