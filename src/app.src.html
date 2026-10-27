@@ -1056,7 +1056,7 @@ function applyParsed(res,d,done,asks){
     const v=varOf(p,it.variantId);
     if(hasVar(p)&&!v&&it.alts?.length){const all=[p,...it.alts.map(id=>S.products.find(x=>x.id===id)).filter(Boolean)];
       asks.push(`Which one? ${all.map(x=>`${x.name}: ${x.variants.map(y=>y.label).join(" · ")}`).join(" | ")}. Type e.g. “${q??10} ${shortKey(p)} ${p.variants[Math.min(1,p.variants.length-1)].label}”.`);continue}
-    if(hasVar(p)&&!v){asks.push(`${p.name}: which size? ${p.variants.map(x=>x.label).join(" · ")}. Type e.g. “${q??10} ${shortKey(p)} ${p.variants[Math.min(1,p.variants.length-1)].label}${rate?" "+rate:""}”.`);continue}
+    if(hasVar(p)&&!v){asks.push(`${p.name}: which one? ${p.variants.map(x=>x.label).join(" · ")}. Type e.g. “${q??10} ${shortKey(p)} ${p.variants[Math.min(1,p.variants.length-1)].label}${rate?" "+rate:""}”.`);continue}
     const opts={};for(const o of optsFor(p,v)){const val=it.options?.[o.name];if(val&&o.values.includes(val))opts[o.name]=val}
     const label=[p.name,v?.label,...Object.values(opts)].filter(Boolean).join(" · ");
     const ex=d.items.findIndex(x=>x.pid===p.id&&(x.vid||"")===(v?.id||"")&&sameOpts(x.opts,opts));
