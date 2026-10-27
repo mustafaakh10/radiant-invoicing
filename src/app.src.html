@@ -121,6 +121,9 @@ input:focus,select:focus,textarea:focus{outline:none;border-color:var(--accent);
 .cmdlog .ask::before{content:"?";color:#b7791f}
 .cmdhelp{font-size:12.5px;line-height:1.7;color:var(--muted);background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:10px 12px;margin-top:8px}
 .cmdhelp b{color:var(--ink)}
+.slashtog{display:flex;gap:10px;align-items:flex-start;font-size:13px;padding:10px 12px;border:1px solid var(--line);border-radius:8px;cursor:pointer}
+.slashtog input{width:auto;margin-top:3px}.slashtog:has(input:checked){border-color:var(--accent);background:color-mix(in srgb,var(--accent) 8%,var(--surface))}
+.totals .saveline{color:var(--accent-ink);font-weight:600}
 .vpick{display:grid;grid-template-columns:repeat(auto-fit,minmax(104px,1fr));gap:8px}
 select.need{border-color:#d9a13b;background:color-mix(in srgb,#d9a13b 8%,var(--surface))}
 .vsect{display:flex;flex-direction:column;gap:8px;border-top:1px solid var(--line);padding-top:12px}
@@ -260,6 +263,9 @@ button.step{cursor:pointer}
 .p-gt{margin-top:14px;height:30px;background:#6d9f53;border-radius:4px;display:flex;align-items:center;justify-content:space-between;padding:0 10px 0 12px;color:#ffffff}
 .p-gt .k{font-size:9px;font-weight:700}
 .p-gt .v{font-size:12px;font-weight:700}
+.p-was{display:block;font-size:8px;line-height:1.3;color:#9aa1a9;text-decoration:line-through}
+.p-now{display:block;font-weight:700;line-height:1.3}
+.p-save{text-align:right;font-size:9px;font-weight:700;color:#6d9f53;margin-top:6px;padding-right:10px}
 .p-hr{height:1px;background:#e3e7e1;margin-top:20px}
 .p-tb{display:flex;justify-content:space-between;margin-top:16px}
 .p-tb .l{width:340px}
@@ -342,11 +348,14 @@ function inWords(n){n=Math.round(Math.abs(Number(n)||0));if(!n)return"Zero Rupee
   if(n)p.push(w999(n));return p.join(" ")+" Rupees Only"}
 const num=v=>{const n=parseFloat(String(v).replace(/,/g,""));return Number.isFinite(n)?n:0};
 function lineAmt(it){return Math.round(num(it.qty)*num(it.rate))}
+const slashOn=d=>!!d.slash&&d.type!=="DN";
+const isSlashed=(d,it)=>slashOn(d)&&num(it.list)>num(it.rate);
 function calc(d){
   const sub=d.items.reduce((a,it)=>a+lineAmt(it),0);
   const dv=num(d.discount?.v);const disc=Math.min(sub,Math.round(d.discount?.t==="pct"?sub*dv/100:dv));
   const rate=num(d.gstRate);const tax=d.taxMode==="add"?Math.round((sub-disc)*rate/100):0;
-  return{sub,disc,tax,grand:sub-disc+tax,qty:d.items.reduce((a,it)=>a+num(d.type==="DN"?it.qtyDel:it.qty),0)};
+  const slashSave=slashOn(d)?d.items.reduce((a,it)=>a+(isSlashed(d,it)?(num(it.list)-num(it.rate))*num(it.qty):0),0):0;
+  return{sub,disc,tax,grand:sub-disc+tax,qty:d.items.reduce((a,it)=>a+num(d.type==="DN"?it.qtyDel:it.qty),0),save:slashOn(d)?Math.round(slashSave+disc):0};
 }
 
 /* ---------- printed document ---------- */
@@ -381,7 +390,7 @@ function docHTML(d){
     const desc=`<div class="p-dsc"><div class="p-nm">${esc(it.name||"—")}</div>${it.spec?`<div class="p-sp">${esc(it.spec)}</div>`:""}${warrantyText(it.warranty)?`<div class="p-wr">${esc(warrantyText(it.warranty))}</div>`:""}</div>`;
     return dn
       ?`<div class="p-tr ${im?"im":"ni"}" style="grid-template-columns:${cols}"><div class="p-c0">${i+1}</div>${img}${desc}<div class="p-v p-ctr">${esc(it.unit||"Pcs")}</div><div class="p-v p-ctr">${fmt(it.qty)}</div><div class="p-v b p-ctr">${fmt(it.qtyDel)}</div></div>`
-      :`<div class="p-tr ${im?"im":"ni"}" style="grid-template-columns:${cols}"><div class="p-c0">${i+1}</div>${img}${desc}<div class="p-v p-ctr">${fmt(it.qty)}</div><div class="p-v u p-ctr">${esc(it.unit||"Pcs")}</div><div class="p-v p-rt">${fmt(it.rate)}</div><div class="p-v b p-am">${fmt(lineAmt(it))}</div></div>`;
+      :`<div class="p-tr ${im?"im":"ni"}" style="grid-template-columns:${cols}"><div class="p-c0">${i+1}</div>${img}${desc}<div class="p-v p-ctr">${fmt(it.qty)}</div><div class="p-v u p-ctr">${esc(it.unit||"Pcs")}</div><div class="p-v p-rt">${isSlashed(d,it)?`<span class="p-was">${fmt(it.list)}</span><span class="p-now">${fmt(it.rate)}</span>`:fmt(it.rate)}</div><div class="p-v b p-am">${fmt(lineAmt(it))}</div></div>`;
   }).join(""):`<div class="p-tr ni"><div class="p-none">No items yet</div></div>`;
   const taxLbl=d.taxMode==="add"?`Sales Tax (${num(d.gstRate)}%)`:"Sales Tax";
   const taxVal=d.taxMode==="add"?fmt(t.tax):"Excl.";
@@ -397,7 +406,7 @@ function docHTML(d){
   }else{
     body=`<div class="p-sum"><div class="lf"><div class="p-lbl">AMOUNT IN WORDS</div><div class="p-wd">${esc(inWords(t.grand))}</div>${d.notes?`<div class="p-lbl p-gap">NOTES</div><div class="p-nt">${esc(d.notes)}</div>`:""}</div>
       <div class="rt"><div class="p-tot"><div class="k">Subtotal</div><div class="v">${fmt(t.sub)}</div><div class="k">Discount</div><div class="v">${fmt(t.disc)}</div><div class="k">${taxLbl}</div><div class="v">${taxVal}</div></div>
-      <div class="p-gt"><div class="k">GRAND TOTAL</div><div class="v">PKR ${fmt(t.grand)}</div></div></div></div>
+      <div class="p-gt"><div class="k">GRAND TOTAL</div><div class="v">PKR ${fmt(t.grand)}</div></div>${t.save>0?`<div class="p-save">You save PKR ${fmt(t.save)}</div>`:""}</div></div>
     <div class="p-hr"></div>
     <div class="p-tb"><div class="l"><div class="p-lbl">TERMS &amp; CONDITIONS</div><div class="p-tx">${esc(numbered(docTerms(d,d.terms)))}</div></div>
     <div class="r">${bank?`<div class="p-lbl">BANK DETAILS</div><div class="p-tx">${esc(bank)}</div>`:""}</div></div>
@@ -555,7 +564,7 @@ function blankDoc(type){
   const s=S.settings,date=todayISO();
   return{type,jobId:uid("j"),number:"",date,validUntil:type==="QT"?addDays(date,num(s.quoteValidDays)||7):"",dueDate:"",refQT:"",refINV:"",
     customer:{id:"",name:"",attn:"",phone:"",address:"",ntn:""},items:[],discount:{v:0,t:"amt"},taxMode:s.defaultTax||"excl",gstRate:num(s.gstRate)||18,
-    notes:type==="DN"?"":(s.notesDefault||""),terms:type==="QT"?s.termsQT:type==="INV"?s.termsINV:"",showImages:true,
+    slash:false,notes:type==="DN"?"":(s.notesDefault||""),terms:type==="QT"?s.termsQT:type==="INV"?s.termsINV:"",showImages:true,
     dispatch:{vehicle:"",driver:"",contact:"",time:"",packages:"",cct:""},instructions:type==="DN"?s.dnInstructions:""};
 }
 function openEditor(d,isNew){S.ed={doc:d,id:isNew?null:d.id,dirty:false,undo:null,cmdLog:null,lastItem:null};S.view="editor";S.pane="form";render();window.scrollTo(0,0)}
@@ -566,7 +575,7 @@ async function convert(src,to){
   let jobId=from.jobId;
   if(!jobId){jobId=uid("j");for(const x of(j?.docs||[from]))if(x.id){x.jobId=jobId;try{await put("docs",x.id,strip(clone(x)))}catch{}}}
   const d=blankDoc(to);d.jobId=jobId;d.customer=clone(from.customer||{});d.items=clone(from.items||[]);d.showImages=from.showImages;
-  if(to==="INV"){d.refQT=from.number;d.discount=clone(from.discount||{v:0,t:"amt"});d.taxMode=from.taxMode;d.gstRate=from.gstRate;d.notes=from.notes}
+  if(to==="INV"){d.slash=!!from.slash;d.refQT=from.number;d.discount=clone(from.discount||{v:0,t:"amt"});d.taxMode=from.taxMode;d.gstRate=from.gstRate;d.notes=from.notes}
   if(to==="DN"){
     if(from.type==="INV")d.refINV=from.number;
     const rem=remaining(from,j?.dns||[]);
@@ -623,7 +632,9 @@ function vEditor(){
         <label class="f">No. of packages<input data-f="dispatch.packages" value="${esc(d.dispatch.packages)}"></label>
         <label class="f">CCT / finish<input data-f="dispatch.cct" value="${esc(d.dispatch.cct)}" placeholder="3000K · Black"></label></div>
         <label class="f">Receiving instructions (one per line)<textarea data-f="instructions" rows="4">${esc(d.instructions)}</textarea></label></div>`
-      :`<div class="sect"><h2>Totals</h2><div class="g3">
+      :`<div class="sect"><h2>Totals</h2>
+        <label class="slashtog"><input type="checkbox" data-f="slash" ${d.slash?"checked":""}><span><b>Show slashed prices</b><br><span class="muted">For offers you want to highlight: the list price is struck through above the offer price. Off for normal quotes.</span></span></label>
+        <div class="g3">
         <label class="f">Discount<input data-f="discount.v" inputmode="decimal" value="${esc(d.discount.v)}"></label>
         <label class="f">Discount as<select data-f="discount.t"><option value="amt" ${d.discount.t==="amt"?"selected":""}>PKR</option><option value="pct" ${d.discount.t==="pct"?"selected":""}>%</option></select></label>
         <label class="f">GST<select data-f="taxMode"><option value="excl" ${d.taxMode==="excl"?"selected":""}>Excluded</option><option value="add" ${d.taxMode==="add"?"selected":""}>Add GST</option></select></label>
@@ -651,7 +662,8 @@ function itemsHTML(d){
     <input data-f="items.${i}.spec" value="${esc(it.spec)}" placeholder="Specs line · e.g. 3W · IP65" aria-label="Specs">
     <input data-f="items.${i}.warranty" value="${esc(it.warranty||"")}" list="wlist" placeholder="Warranty · e.g. 2 years replacement" aria-label="Warranty">
     ${dn?`<div class="g3"><label class="f">Qty ordered<input data-f="items.${i}.qty" inputmode="decimal" value="${esc(it.qty)}"></label><label class="f">Qty delivered<input data-f="items.${i}.qtyDel" inputmode="decimal" value="${esc(it.qtyDel)}"></label><label class="f">Unit<input data-f="items.${i}.unit" value="${esc(it.unit)}"></label></div>`
-    :`<div class="g3"><label class="f">Qty<input data-f="items.${i}.qty" inputmode="decimal" value="${esc(it.qty)}"></label><label class="f">Unit<input data-f="items.${i}.unit" value="${esc(it.unit)}"></label><label class="f">Rate (PKR)<input data-f="items.${i}.rate" inputmode="decimal" value="${esc(it.rate)}"></label></div>
+    :`<div class="g3"><label class="f">Qty<input data-f="items.${i}.qty" inputmode="decimal" value="${esc(it.qty)}"></label><label class="f">Unit<input data-f="items.${i}.unit" value="${esc(it.unit)}"></label><label class="f">${slashOn(d)?"Offer rate":"Rate (PKR)"}<input data-f="items.${i}.rate" inputmode="decimal" value="${esc(it.rate)}"></label></div>
+    ${slashOn(d)?`<label class="f">List price, shown slashed <span class="muted" style="font-weight:400">(leave empty for no slash on this line)</span><input data-f="items.${i}.list" inputmode="decimal" value="${esc(it.list??"")}" placeholder="e.g. ${esc(fmt(Math.round(num(it.rate)*1.15/50)*50||0))}"></label>`:""}
     <div class="amtline">Amount <b data-amt="${i}">PKR ${fmt(lineAmt(it))}</b></div>`}</div>`).join("");
 }
 /* ---------- product variants: sizes (own price / code / spec) + options chosen per order ---------- */
@@ -711,7 +723,7 @@ function updatePreview(){cancelAnimationFrame(pvRAF);pvRAF=requestAnimationFrame
   const pv=$("#pv"),wrap=$("#pvWrap");if(!pv||!S.ed)return;const d=S.ed.doc;
   pv.innerHTML=docHTML(d);const w=wrap.clientWidth-28;const sc=Math.min(1,w/794);pv.style.transform=`scale(${sc})`;
   pv.style.width="794px";pv.style.height="0";const h=pv.firstElementChild.offsetHeight;pv.style.marginBottom=(h*sc)+"px";
-  const tt=$("#totals");if(tt&&d.type!=="DN"){const t=calc(d);tt.innerHTML=`<span class="muted">Subtotal</span><span>PKR ${fmt(t.sub)}</span><span class="muted">Discount</span><span>− ${fmt(t.disc)}</span><span class="muted">${d.taxMode==="add"?"GST "+num(d.gstRate)+"%":"Sales tax"}</span><span>${d.taxMode==="add"?fmt(t.tax):"Excl."}</span><span class="gt">Grand total</span><span class="gt">PKR ${fmt(t.grand)}</span><span class="muted" style="grid-column:1/-1;font-size:12px">${esc(inWords(t.grand))}</span>`}
+  const tt=$("#totals");if(tt&&d.type!=="DN"){const t=calc(d);tt.innerHTML=`<span class="muted">Subtotal</span><span>PKR ${fmt(t.sub)}</span><span class="muted">Discount</span><span>− ${fmt(t.disc)}</span><span class="muted">${d.taxMode==="add"?"GST "+num(d.gstRate)+"%":"Sales tax"}</span><span>${d.taxMode==="add"?fmt(t.tax):"Excl."}</span><span class="gt">Grand total</span><span class="gt">PKR ${fmt(t.grand)}</span>${t.save>0?`<span class="saveline">Customer saves</span><span class="saveline">PKR ${fmt(t.save)}</span>`:""}<span class="muted" style="grid-column:1/-1;font-size:12px">${esc(inWords(t.grand))}</span>`}
 })}
 window.addEventListener("resize",()=>{if(S.view==="editor")updatePreview()});
 function setPath(o,path,v){const k=path.split(".");let x=o;for(let i=0;i<k.length-1;i++){x=x[k[i]]??(x[k[i]]={})}x[k.at(-1)]=v}
@@ -824,6 +836,27 @@ function runCommand(raw,d){
     if(/\b(add|include|with|apply|plus|incl|inclusive)\b/.test(lc)||/^(gst|tax)$/.test(lc)){d.taxMode="add";return`GST ${num(d.gstRate)}% added`}
   }
 
+  /* slashed offer prices: "trail offer 4500", "10% off tulip 12w", "trail was 5200", "remove offer trail", "hide slash prices" */
+  if(!dn){
+    if(/^(?:show|turn on|enable|add)?\s*(?:the\s+)?(?:slash(?:ed)?|strike(?:through)?|offer|sale)\s*(?:prices?|pricing)?(?:\s+on)?$/.test(lc)){d.slash=true;return"Slashed prices on for this document"}
+    if(/^(?:hide|turn off|disable|no)\s+(?:the\s+)?(?:slash(?:ed)?|strike(?:through)?|offer|sale)\s*(?:prices?|pricing)?$|^(?:slash(?:ed)?|offer|sale)\s*(?:prices?\s*)?off$/.test(lc)){d.slash=false;return"Slashed prices hidden (offer rates stay as they are)"}
+    if((m=lc.match(/^(?:remove|cancel|clear|no)\s+(?:the\s+)?(?:offer|sale|slash(?:ed)?)(?:\s+price)?\s*(?:on|for|from)?\s*(.*)$/))){const ti=targetItems(m[1]||"this",d);if(pickOr(ti))return pickOr(ti);
+      const msgs=ti.map(i=>{const it=d.items[i];if(num(it.list)>num(it.rate))it.rate=num(it.list);it.list="";return`${nm(i)} back to ${fmt(it.rate)}`});return msgs.join(", ")}
+    const offerKw=/\b(offer|sale|slash(?:ed)?|special)\b/.test(lc),wasKw=/\b(was|list price|mrp|original price|retail price)\b/.test(lc);
+    const pctOff=/\d+(?:\.\d+)?\s*%\s*off\b|\boff\s+\d+(?:\.\d+)?\s*%/.test(lc)&&!/\b(discount|each|per|total)\b/.test(lc);
+    if((offerKw||wasKw||pctOff)&&d.items.length){
+      const ti=targetItems(lc.replace(/\b(offer|sale|slash(?:ed)?|special|was|list price|mrp|original price|retail price|price|off)\b/g," "),d);if(pickOr(ti))return pickOr(ti);
+      const p=pctIn(lc),a=amountIn(lc.replace(/\d+(?:\.\d+)?\s*%/g," "));
+      if(p==null&&a==null)return{ask:"What price? e.g. “trail offer 4500”, “10% off trail” or “trail was 5200”."};
+      const msgs=[];
+      for(const i of ti){const it=d.items[i],base=num(it.list)>num(it.rate)?num(it.list):num(it.rate);
+        if(wasKw&&!offerKw){if(a==null)return{ask:"What was the list price?"};if(a<=num(it.rate))return{ask:`The list price must be higher than the current rate (${fmt(it.rate)}) to show a slash.`};it.list=a}
+        else if(p!=null){if(!base)return{ask:`${nm(i)} has no price yet.`};it.list=base;it.rate=Math.round(base*(1-p/100))}
+        else{if(a>=base)return{ask:`The offer must be lower than ${fmt(base)}. To set a normal price, say “${(()=>{const p=S.products.find(x=>x.id===it.pid);return p?[shortKey(p),varOf(p,it.vid)?.label].filter(Boolean).join(" "):"item "+(i+1)})()} rate ${a}”.`};it.list=base;it.rate=a}
+        msgs.push(`${nm(i)}: was ${fmt(it.list)}, now ${fmt(it.rate)}`);S.ed.lastItem=i}
+      const wasOn=d.slash;d.slash=true;return msgs.join(", ")+(wasOn?"":" · slashed prices on for this document");
+    }
+  }
   /* totals: round off / target total / discounts */
   const t0=()=>calc(d);
   if(!dn&&/\bround\b/.test(lc)){const step=/\b(thousand|1000|1k)\b/.test(lc)?1000:/\b(500)\b/.test(lc)?500:/\b(10)\b/.test(lc)&&!/\b100\b/.test(lc)?10:100;
@@ -905,7 +938,7 @@ function setTotal(d,target,label){
   for(let k=0;k<3&&calc(d).grand!==target;k++){disc+=calc(d).grand-target;d.discount={v:disc,t:"amt"}}
   return(label||`Total set to PKR ${fmt(calc(d).grand)}`)+` (discount PKR ${fmt(disc)})`;
 }
-const CMD_HELP=`<b>New items</b>: “45 trail 4850, 20 convex” · sizes &amp; options: “20 tulip 12w 4000k black 1450”<br><b>Sizes &amp; options</b>: “change tulip 12w to 9w” · “make tulip black” · “tulip 12w cct warm”<br><b>Items</b>: “trail price -100” · “item 2 rate 4500” · “convex +5%” · “qty trail 50” · “5 more trail” · “remove convex” · “trail warranty 2 years” · “unit trail mtr” · “specs trail: 3W · IP65”<br><b>Totals</b>: “discount 500” · “5% discount” · “100 off each trail” · “make total 200000” · “round off” · “add gst” · “gst 17%” · “no gst”<br><b>Customer</b>: “for central square” · “attn Mr. Talha” · “phone 0300 1234567” · “address: Plot 12, Multan”<br><b>Dates</b>: “due in 7 days” · “valid till 30 oct” · “date yesterday”<br><b>Text</b>: “note: deliver after 5pm” · “add term: 50% advance” · “remove term warranty”<br><b>Delivery</b>: “delivered 30 trail” · “vehicle MN-1234” · “driver Aslam” · “3 cartons”<br><b>Actions</b>: “hide photos” · “save” · “pdf” · “convert to invoice”`;
+const CMD_HELP=`<b>New items</b>: “45 trail 4850, 20 convex” · sizes &amp; options: “20 tulip 12w 4000k black 1450”<br><b>Sizes &amp; options</b>: “change tulip 12w to 9w” · “make tulip black” · “tulip 12w cct warm”<br><b>Items</b>: “trail price -100” · “item 2 rate 4500” · “convex +5%” · “qty trail 50” · “5 more trail” · “remove convex” · “trail warranty 2 years” · “unit trail mtr” · “specs trail: 3W · IP65”<br><b>Offers</b> (slashed price): “trail offer 4500” · “10% off tulip 12w” · “trail was 5200” · “remove offer trail” · “hide slash prices”<br><b>Totals</b>: “discount 500” · “5% discount” · “100 off each trail” · “make total 200000” · “round off” · “add gst” · “gst 17%” · “no gst”<br><b>Customer</b>: “for central square” · “attn Mr. Talha” · “phone 0300 1234567” · “address: Plot 12, Multan”<br><b>Dates</b>: “due in 7 days” · “valid till 30 oct” · “date yesterday”<br><b>Text</b>: “note: deliver after 5pm” · “add term: 50% advance” · “remove term warranty”<br><b>Delivery</b>: “delivered 30 trail” · “vehicle MN-1234” · “driver Aslam” · “3 cartons”<br><b>Actions</b>: “hide photos” · “save” · “pdf” · “convert to invoice”`;
 function splitClauses(txt){
   return txt.split(/\n|;/).flatMap(line=>{const l=line.trim();if(!l)return[];
     if(/^(notes?|add\s+notes?|append\s+notes?|address|addr|add\s+(a\s+)?(term|condition|t&c)|remove\s+(the\s+)?(term|condition)|specs?\b|description|details?\b|customer|client|bill to|deliver to)\b/i.test(l))return[l];
@@ -1233,7 +1266,10 @@ async function buildPDF(d,env={}){
     }else{
       tx(fmt(it.qty),ctr(di+1),cy,{...v,align:"center"});
       tx(it.unit||"Pcs",ctr(di+2),cy,{...v,color:G2,align:"center"});
-      tx(fmt(it.rate),C[di+3][0]+C[di+3][1]-6,cy,{...v,align:"right"});
+      if(isSlashed(d,it)){const rx=C[di+3][0]+C[di+3][1]-6,was=fmt(it.list),ww=width(clean(was),8,"normal");
+        tx(was,rx,cy-6,{size:8,color:"#9aa1a9",align:"right"});rect(rx-ww,cy-6+4.5,ww,0.7,"#9aa1a9");
+        tx(fmt(it.rate),rx,cy+5,{size:10,lh:1.4,style:"bold",align:"right"});}
+      else tx(fmt(it.rate),C[di+3][0]+C[di+3][1]-6,cy,{...v,align:"right"});
       tx(fmt(lineAmt(it)),C[di+4][0]+C[di+4][1]-8,cy,{...v,style:"bold",align:"right"});
     }
     last?rect(48,y+rowH-0.75,698,1.5,DK):rect(48,y+rowH-1,698,1,LN);
@@ -1273,7 +1309,8 @@ async function buildPDF(d,env={}){
     if(draw)rect(530,gy,216,30,G,4);
     tx("GRAND TOTAL",542,gy+8.7,o({size:9,style:"bold",color:WH}));
     tx("PKR "+fmt(t.grand),736,gy+6.6,o({size:12,style:"bold",color:WH,align:"right"}));
-    const hr=Math.max(ly,gy+30)+20;if(draw)rect(48,hr,698,1,LN);
+    if(t.save>0)tx(`You save PKR ${fmt(t.save)}`,736,gy+36,o({size:9,style:"bold",color:G,align:"right"}));
+    const hr=Math.max(ly,gy+30+(t.save>0?18:0))+20;if(draw)rect(48,hr,698,1,LN);
     const ty=hr+16;
     tx("TERMS & CONDITIONS",48,ty,o({size:8,style:"bold",color:G}));
     const a=tx(numbered(docTerms(d,d.terms)),48,ty+16,o({size:9,color:G2,lh:1.6,w:340}));
@@ -1477,7 +1514,7 @@ document.addEventListener("change",async e=>{
     S.ed.lastItem=i;$("#items").innerHTML=itemsHTML(S.ed.doc);updatePreview();return}
   if(t.dataset.act==="pick"&&S.ed){S.ed.dirty=true;const i=+t.dataset.i,p=S.products.find(x=>x.id===t.value),it=S.ed.doc.items[i];
     S.ed.lastItem=i;if(p)S.ed.doc.items[i]=itemFromProduct(p,num(it.qty)||1,num(p.price));else it.pid="";$("#items").innerHTML=itemsHTML(S.ed.doc);updatePreview();return}
-  if(t.type==="checkbox"&&t.dataset.f){setPath(S.ed.doc,t.dataset.f,t.checked);updatePreview();return}
+  if(t.type==="checkbox"&&t.dataset.f){S.ed.dirty=true;setPath(S.ed.doc,t.dataset.f,t.checked);if(t.dataset.f==="slash")$("#items").innerHTML=itemsHTML(S.ed.doc);updatePreview();return}
   if(t.tagName==="SELECT"&&t.dataset.f&&S.ed){S.ed.dirty=true;setPath(S.ed.doc,t.dataset.f,t.value);updatePreview();return}
   if(t.id==="pPhoto"&&t.files[0]&&S.pform){const m=$("#pPhotoMsg");m.textContent="Uploading…";
     try{const r=await prepUpload(t.files[0],1600,4e6);S.pform.img=await storeImage(r.blob);renderPForm()}catch{m.textContent="Upload failed. Try a JPG or PNG."}return}
