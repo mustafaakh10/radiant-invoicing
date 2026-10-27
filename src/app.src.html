@@ -1160,9 +1160,12 @@ function imageBytes(src){
   if(!imgBytesCache.has(src))imgBytesCache.set(src,(async()=>{
     let u=null;
     try{if(src.startsWith("data:"))u=b64ToBytes(src.slice(src.indexOf(",")+1));else{const r=await fetch(src);if(r.ok)u=new Uint8Array(await r.arrayBuffer())}}catch{}
-    if(imgKind(u))return{bytes:u,kind:imgKind(u)};
-    const im=await loadImg(src);const c=document.createElement("canvas");c.width=im.naturalWidth;c.height=im.naturalHeight;c.getContext("2d").drawImage(im,0,0);
-    const blob=await new Promise(r=>c.toBlob(r,"image/png"));return{bytes:new Uint8Array(await blob.arrayBuffer()),kind:"png"};
+    /* small files go in untouched; big photos are resized to print size (700 px is sharp at 300 dpi in the photo box) so PDFs stay light for WhatsApp */
+    if(imgKind(u)&&u.length<=350000)return{bytes:u,kind:imgKind(u)};
+    const im=await loadImg(src);const W=im.naturalWidth,H=im.naturalHeight,sc=Math.min(1,700/Math.max(W,H));
+    const c=document.createElement("canvas");c.width=Math.round(W*sc);c.height=Math.round(H*sc);const x=c.getContext("2d");
+    x.fillStyle="#ffffff";x.fillRect(0,0,c.width,c.height);x.imageSmoothingQuality="high";x.drawImage(im,0,0,c.width,c.height);
+    const blob=await new Promise(r=>c.toBlob(r,"image/jpeg",.9));return{bytes:new Uint8Array(await blob.arrayBuffer()),kind:"jpg"};
   })().catch(()=>null));
   return imgBytesCache.get(src);
 }
