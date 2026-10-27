@@ -121,6 +121,16 @@ input:focus,select:focus,textarea:focus{outline:none;border-color:var(--accent);
 .cmdlog .ask::before{content:"?";color:#b7791f}
 .cmdhelp{font-size:12.5px;line-height:1.7;color:var(--muted);background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:10px 12px;margin-top:8px}
 .cmdhelp b{color:var(--ink)}
+.vpick{display:grid;grid-template-columns:repeat(auto-fit,minmax(104px,1fr));gap:8px}
+select.need{border-color:#d9a13b;background:color-mix(in srgb,#d9a13b 8%,var(--surface))}
+.vsect{display:flex;flex-direction:column;gap:8px;border-top:1px solid var(--line);padding-top:12px}
+.vsect h3{font-size:14px;margin:0}.vsect .hint{font-size:12px}
+.vrow{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr) minmax(0,1.2fr) auto;gap:6px;align-items:center}
+.vrow .vspec{grid-column:1/-1;margin-bottom:4px}
+.orow{display:grid;grid-template-columns:minmax(0,.8fr) minmax(0,1.6fr) minmax(0,1.1fr) auto;gap:6px;align-items:center}
+@media (max-width:520px){.orow{grid-template-columns:minmax(0,1fr) auto}.orow input:nth-child(2),.orow input:nth-child(3){grid-column:1/-1}.orow button{grid-row:1;grid-column:2}}
+.vchips{display:flex;flex-wrap:wrap;gap:4px;margin-top:4px}.vchips span{font-size:11px;font-weight:700;border:1px solid var(--line);border-radius:99px;padding:1px 7px;color:var(--muted)}
+.pcard .sp i{font-style:normal;opacity:.75}
 /* orders */
 .seg{display:inline-flex;background:var(--sunk);border:1px solid var(--line);border-radius:8px;padding:3px;gap:2px}
 .seg button{border:0;background:none;padding:6px 12px;border-radius:6px;font-weight:600;cursor:pointer;color:var(--muted)}
@@ -471,7 +481,7 @@ function jobsList(){
     return{key,docs,qt,inv,dns,base,status,updated,customer:base.customer||{},value:(inv||qt)?(inv||qt).totals?.grand??calc(inv||qt).grand:null};
   }).sort((a,b)=>b.updated-a.updated);
 }
-const itemKey=it=>it.pid||String(it.name||"").trim().toLowerCase();
+const itemKey=it=>it.pid?`${it.pid}|${it.vid||""}|${JSON.stringify(Object.entries(it.opts||{}).filter(([,x])=>x).sort())}`:String(it.name||"").trim().toLowerCase();
 function remaining(src,dns){
   const sent=new Map();for(const dn of dns)for(const it of dn.items||[]){const k=itemKey(it);sent.set(k,(sent.get(k)||0)+num(it.qtyDel))}
   return(src.items||[]).map(it=>{const k=itemKey(it),have=sent.get(k)||0,need=num(it.qty),use=Math.min(have,need);sent.set(k,have-use);return need-use});
@@ -567,7 +577,7 @@ async function convert(src,to){
 }
 function openDocById(id){const d=S.docs.find(x=>x.id===id);if(!d)return;const c=clone(d);c.dispatch=c.dispatch||{};c.discount=c.discount||{v:0,t:"amt"};openEditor({...blankDoc(d.type),jobId:"",...c},false)}
 function custOptions(sel){return `<option value="">— Pick saved customer —</option>`+S.customers.map(c=>`<option value="${c.id}" ${c.id===sel?"selected":""}>${esc(c.name)}${c.attn?" · "+esc(c.attn):""}</option>`).join("")}
-function prodOptions(sel){return `<option value="">Custom item</option>`+S.products.map(p=>`<option value="${p.id}" ${p.id===sel?"selected":""}>${esc(p.name)}${p.spec?" — "+esc(p.spec.split("·")[0].trim()):""}</option>`).join("")}
+function prodOptions(sel){return `<option value="">Custom item</option>`+S.products.map(p=>`<option value="${p.id}" ${p.id===sel?"selected":""}>${esc(p.name)}${hasVar(p)?` — ${p.variants.length} sizes`:p.spec?" — "+esc(p.spec.split("·")[0].trim()):""}</option>`).join("")}
 function vEditor(){
   const d=S.ed.doc,dn=d.type==="DN";
   $("#view").innerHTML=`
@@ -583,7 +593,7 @@ function vEditor(){
   <div class="editor" data-pane="${S.pane}">
    <div class="form-col stack">
     <div class="card ai stack"><div class="spread"><h2 style="margin:0">Quick entry &amp; edits</h2><button class="btn sm ghost" data-act="cmdhelp">What can I type?</button></div>
-      <div class="muted" style="font-size:13px">Add items the way you'd text them, or tell it what to change: “discount 5%”, “trail price -100”, “add gst”, “due in 7 days”. Edits are done instantly on your device; only new items use AI. Totals are always computed here.</div>
+      <div class="muted" style="font-size:13px">Add items the way you'd text them, or tell it what to change: “discount 5%”, “trail price -100”, “add gst”, “due in 7 days”. New items are matched to your catalogue on your device, sizes and options included; AI is only used for lines it can't place. Totals are always computed here.</div>
       <textarea id="aiText" rows="3" placeholder="mashood central square 45 trail 3w 4850&#10;or: 100 off each trail, add gst, due in 7 days">${esc(S.ed.aiText||"")}</textarea>
       <div class="row"><button class="btn pri" data-act="ai" id="aiBtn">Apply</button>${S.ed.undo?`<button class="btn" data-act="undo">Undo last</button>`:""}<span id="aiBusy" class="muted" style="font-size:13px"></span></div>
       <div id="aiMsg">${cmdLogHTML()}</div></div>
@@ -628,11 +638,15 @@ function vEditor(){
   renderEdSteps();updatePreview();
 }
 function renderEdSteps(){const el=$("#edSteps");if(!el||!S.ed)return;const j=S.ed.id&&jobFor({id:S.ed.id});el.className=j?"ed-steps":"";el.innerHTML=j?stepsHTML(j,S.ed.id):""}
+function variantPickers(it,i){const p=S.products.find(x=>x.id===it.pid);if(!hasVar(p))return"";const v=varOf(p,it.vid);
+  return `<div class="vpick"><label class="f">Size<select data-act="vsel" data-i="${i}" class="${v?"":"need"}"><option value="">Choose size…</option>${p.variants.map(x=>`<option value="${esc(x.id)}" ${x.id===it.vid?"selected":""}>${esc(x.label)}${num(x.price)?" · "+fmt(x.price):""}</option>`).join("")}</select></label>
+   ${optsFor(p,v).map(o=>`<label class="f">${esc(o.name)}<select data-act="osel" data-i="${i}" data-o="${esc(o.name)}" class="${it.opts?.[o.name]?"":"need"}"><option value="">Choose…</option>${o.values.map(val=>`<option ${it.opts?.[o.name]===val?"selected":""}>${esc(val)}</option>`).join("")}</select></label>`).join("")}</div>`}
 function itemsHTML(d){
   const dn=d.type==="DN";
   if(!d.items.length)return`<div class="muted" style="font-size:13px">No items yet. Use quick entry above or add one.</div>`;
   return d.items.map((it,i)=>`<div class="item" data-i="${i}">
     <div class="item-top"><span class="idx">${i+1}</span>${it.img?`<img class="thumb" src="${esc(it.img)}" alt="">`:""}<select data-act="pick" data-i="${i}" aria-label="Catalogue product">${prodOptions(it.pid)}</select><button class="btn sm ghost danger" data-act="rmitem" data-i="${i}">Remove</button></div>
+    ${variantPickers(it,i)}
     <input data-f="items.${i}.name" value="${esc(it.name)}" placeholder="Description" aria-label="Description">
     <input data-f="items.${i}.spec" value="${esc(it.spec)}" placeholder="Specs line · e.g. 3W · IP65" aria-label="Specs">
     <input data-f="items.${i}.warranty" value="${esc(it.warranty||"")}" list="wlist" placeholder="Warranty · e.g. 2 years replacement" aria-label="Warranty">
@@ -640,7 +654,58 @@ function itemsHTML(d){
     :`<div class="g3"><label class="f">Qty<input data-f="items.${i}.qty" inputmode="decimal" value="${esc(it.qty)}"></label><label class="f">Unit<input data-f="items.${i}.unit" value="${esc(it.unit)}"></label><label class="f">Rate (PKR)<input data-f="items.${i}.rate" inputmode="decimal" value="${esc(it.rate)}"></label></div>
     <div class="amtline">Amount <b data-amt="${i}">PKR ${fmt(lineAmt(it))}</b></div>`}</div>`).join("");
 }
-function itemFromProduct(p,qty,rate){return{pid:p.id,name:p.name,spec:p.spec||"",warranty:p.warranty||"",img:p.img||"",unit:p.unit||"Pcs",qty:qty??1,qtyDel:qty??1,rate:rate??num(p.price)}}
+/* ---------- product variants: sizes (own price / code / spec) + options chosen per order ---------- */
+const hasVar=p=>Array.isArray(p?.variants)&&p.variants.length>0;
+const varOf=(p,vid)=>hasVar(p)&&vid?p.variants.find(v=>v.id===vid)||null:null;
+const optsFor=(p,v)=>(p?.options||[]).filter(o=>o&&o.name&&Array.isArray(o.values)&&o.values.length&&(!o.only?.length||(v&&o.only.some(x=>String(x).toLowerCase()===String(v.label).toLowerCase()))));
+function composeSpec(p,v,opts){
+  if(!hasVar(p))return p?.spec||"";
+  const parts=[];if(v)parts.push(v.spec||v.label);
+  for(const o of optsFor(p,v))if(opts?.[o.name])parts.push(opts[o.name]);
+  if(p.spec)parts.push(p.spec);
+  return parts.filter(Boolean).join("  ·  ");
+}
+const varPrice=(p,v)=>num(v?.price)||num(p?.price);
+const sameOpts=(a,b)=>JSON.stringify(Object.entries(a||{}).filter(([,x])=>x).sort())===JSON.stringify(Object.entries(b||{}).filter(([,x])=>x).sort());
+function itemFromProduct(p,qty,rate,vid,opts){
+  const v=varOf(p,vid),o={};for(const op of optsFor(p,v))if(opts?.[op.name]&&op.values.includes(opts[op.name]))o[op.name]=opts[op.name];
+  return{pid:p.id,vid:v?.id||"",opts:o,name:p.name,spec:composeSpec(p,v,o),warranty:p.warranty||"",img:p.img||"",unit:p.unit||"Pcs",qty:qty??1,qtyDel:qty??1,rate:rate??varPrice(p,v)};
+}
+/* change size / options on an existing line; the rate follows the size price unless it was edited by hand */
+function setLineVariant(it,p,vid,opts){
+  const oldV=varOf(p,it.vid),v=varOf(p,vid)??oldV;
+  const keepRate=num(it.rate)&&num(it.rate)!==varPrice(p,oldV);
+  const o={};for(const op of optsFor(p,v)){const val=opts&&op.name in opts?opts[op.name]:it.opts?.[op.name];if(val&&op.values.includes(val))o[op.name]=val}
+  it.vid=v?.id||"";it.opts=o;it.spec=composeSpec(p,v,o);if(!keepRate&&v)it.rate=varPrice(p,v);
+}
+const lineLabel=it=>{const p=S.products.find(x=>x.id===it.pid),v=varOf(p,it.vid);return[it.name||"Item",v?.label,...Object.values(it.opts||{})].filter(Boolean).join(" · ")};
+const modelCodes=m=>{m=String(m||"").toLowerCase().trim();if(!m)return[];const out=[m],tail=m.split(/[-\s\/]/).filter(Boolean).at(-1);if(tail&&tail!==m&&tail.length>=3&&/\d/.test(tail)&&/[a-z]/.test(tail))out.push(tail);return out};
+const escRe=x=>String(x).replace(/[.*+?^${}()|[\]\\]/g,"\\$&");
+const normOrder=t=>String(t||"").toLowerCase().replace(/[’']/g,"").replace(/(\d)\s+(w|k|watt|watts)\b/g,"$1$2").replace(/(\d)\s*(?:deg|degree|degrees)\b/g,"$1°").replace(/\s+/g," ").trim();
+const wordAt=(hay,al)=>{const m=new RegExp(`(^|[^a-z0-9°])${escRe(al)}(?=$|[^a-z0-9°])`).exec(hay);return m?{at:m.index+m[1].length,len:al.length}:null};
+function variantAliases(v){const a=new Set(),L=String(v.label||"").toLowerCase().trim();
+  if(L){a.add(L);a.add(L.replace(/\s+/g,""))}for(const c of modelCodes(v.model))a.add(c);
+  const w=(String(`${v.label} ${v.spec||""}`).match(/(\d+(?:\.\d+)?)\s*w\b/i)||[])[1];if(w){a.add(w+"w");a.add(w+"watt")}
+  return[...a].filter(x=>x.length>=2)}
+function optionAliases(val){const v=String(val).toLowerCase().trim(),a=new Set([v,v.replace(/\s+/g,"")]);let m;
+  if((m=v.match(/^(\d{4})\s*k$/))){const t=+m[1];a.add(m[1]+"k");
+    if(t<=3500)["warm","warm white","ww","yellow"].forEach(x=>a.add(x));else if(t<=4500)["natural","neutral","natural white","nw","cool day"].forEach(x=>a.add(x));else["cool","cool white","daylight","day light","cw","white light"].forEach(x=>a.add(x))}
+  if((m=v.match(/^(\d+)\s*°$/)))a.add(m[1]+"°");
+  if(v==="white")a.add("wht");if(v==="black")a.add("blk");
+  return[...a]}
+/* which size / options a piece of text names for product p; spans are the matched character ranges */
+function readVariant(p,seg){
+  const out={v:null,opts:{},spans:[]};if(!p)return out;
+  if(hasVar(p)){let best=null;for(const v of p.variants)for(const al of variantAliases(v)){const h=wordAt(seg,al);if(h&&(!best||h.len>best.len))best={v,...h}}
+    if(best){out.v=best.v;out.spans.push([best.at,best.at+best.len])}}
+  let rest=seg;const cut=(a,b)=>{rest=rest.slice(0,a)+" ".repeat(b-a)+rest.slice(b)};if(out.spans[0])cut(...out.spans[0]);
+  /* longest match first across all options, so "cool white" wins over "white" */
+  const cands=[];for(const o of optsFor(p,out.v||null).concat(out.v?[]:(p.options||[]).filter(o=>o.only?.length)))for(const val of o.values)for(const al of optionAliases(val))cands.push({o,val,al});
+  cands.sort((a,b)=>b.al.length-a.al.length);
+  for(const c of cands){if(c.o.name in out.opts)continue;const h=wordAt(rest,c.al);if(h){out.opts[c.o.name]=c.val;out.spans.push([h.at,h.at+h.len]);cut(h.at,h.at+h.len)}}
+  /* colour words like "white light" can mean CCT or finish: if both hit the same words, keep the explicit one */
+  return out;
+}
 let pvRAF;
 function updatePreview(){cancelAnimationFrame(pvRAF);pvRAF=requestAnimationFrame(()=>{
   const pv=$("#pv"),wrap=$("#pvWrap");if(!pv||!S.ed)return;const d=S.ed.doc;
@@ -672,24 +737,41 @@ function parseDate(c,base){
   if((m=c.match(/\b(\d{1,2})[\/.](\d{1,2})(?:[\/.](\d{2,4}))?\b/))){const y=m[3]?(m[3].length===2?"20"+m[3]:m[3]):y0;return `${y}-${m[2].padStart(2,"0")}-${m[1].padStart(2,"0")}`}
   return null;
 }
-/* which line items a clause refers to: [] = none named; null = ambiguous */
-function itemsIn(c,d){
-  const n=d.items.length,lc=c.toLowerCase();let m;
+/* which line items a clause refers to: [] = none named; null = ambiguous.
+   A line whose size or options contradict the clause ("tulip 9w" vs a 12W line) doesn't count, unless loose is set. */
+function lineConflicts(it,lc){const p=S.products.find(x=>x.id===it.pid);if(!hasVar(p)&&!(p?.options||[]).length)return false;
+  const r=readVariant(p,lc);if(r.v&&it.vid&&r.v.id!==it.vid)return true;
+  for(const[k,v]of Object.entries(r.opts))if(it.opts?.[k]&&it.opts[k]!==v)return true;return false}
+function itemsIn(c,d,loose){
+  LASTAMB=null;const n=d.items.length,lc=normOrder(c);let m;
   if(!n)return[];
   if(/\b(all|every|everything|each item|all items)\b/.test(lc))return d.items.map((_,i)=>i);
   if((m=lc.match(/\b(?:item|line|no\.?)\s*#?(\d+)\b|#(\d+)\b/))){const i=+(m[1]||m[2])-1;return i>=0&&i<n?[i]:null}
   for(const[w,i]of Object.entries(ORD))if(new RegExp(`\\b${w}\\b`).test(lc))return i<n?[i]:null;
   if(/\blast\b/.test(lc))return[n-1];
-  const toks=lc.match(/[a-z][a-z0-9\-]{2,}/g)?.filter(t=>!STOP.has(t))||[];
-  const scores=d.items.map(it=>{const p=S.products.find(x=>x.id===it.pid);const hay=`${it.name} ${it.spec||""} ${p?.keywords||""} ${p?.model||""}`.toLowerCase();
-    const w=(lc.match(/\b(\d+)\s*w\b/)||[])[1];return toks.reduce((a,t)=>a+(hay.includes(t)?1:0),0)+(w&&new RegExp(`\\b${w}\\s*w\\b`).test(hay)?1:0)});
+  const toks=lc.match(/\b\d+(?:\.\d+)?(?:w|k)\b|[a-z][a-z0-9\-]{2,}/g)?.filter(t=>!STOP.has(t))||[];
+  const named=new Set(findMentions(lc).map(x=>x.p.id));
+  const scores=d.items.map(it=>{const p=S.products.find(x=>x.id===it.pid),v=varOf(p,it.vid);
+    if(named.size&&!named.has(it.pid))return 0;
+    const hay=normOrder(`${it.name} ${it.spec||""} ${p?.keywords||""} ${p?.model||""} ${v?.label||""} ${v?.model||""} ${Object.values(it.opts||{}).join(" ")}`);
+    if(!loose&&lineConflicts(it,lc))return -100;
+    return toks.reduce((a,t)=>a+(new RegExp(`(^|[^a-z0-9])${escRe(t)}(?=$|[^a-z0-9])`).test(hay)?1:0),0)});
   const best=Math.max(...scores);
-  if(best>0){const hits=scores.map((s,i)=>s===best?i:-1).filter(i=>i>=0);return hits.length===1?hits:null}
+  if(best>0){const hits=scores.map((s,i)=>s===best?i:-1).filter(i=>i>=0);if(hits.length===1)return hits;LASTAMB=hits;return null}
   return[];
 }
-const targetItems=(c,d)=>{const r=itemsIn(c,d);if(r===null)return null;if(r.length)return r;
+let LASTAMB=null;
+const ambAsk=d=>{const h=LASTAMB;return h&&h.length>1?`Which one? ${h.map(i=>`item ${i+1}: ${lineLabel(d.items[i])}`).join(" · ")}. Add the size or colour, or say “item ${h[0]+1}”.`:ASK};
+function stripOptionWords(t){let x=" "+t+" ";const al=[];for(const p of S.products)for(const o of p.options||[])for(const v of o.values||[])al.push(...optionAliases(v));
+  al.sort((a,b)=>b.length-a.length);for(const a of al)x=x.replace(new RegExp(`(^|[^a-z0-9°])${escRe(a)}(?=$|[^a-z0-9°])`,"g"),"$1 ");
+  return x.replace(/\b(cct|colou?r|finish|beam)\b/g," ").replace(/\s+/g," ").trim()}
+/* null = ambiguous, [] = names a product that isn't on this document, else the line indexes */
+const targetItems=(c,d,loose)=>{const r=itemsIn(c,d,loose);if(r===null)return null;if(r.length)return r;
+  if(findMentions(normOrder(c)).length)return[];
   if(d.items.length===1)return[0];if(S.ed.lastItem!=null&&S.ed.lastItem<d.items.length&&/\b(this|it|that|same)\b/i.test(c))return[S.ed.lastItem];return null};
-let CURD=null;const nm=i=>CURD.items[i].name||`Item ${i+1}`;
+const NOTON="That item isn't on this document yet. Add it first, e.g. “10 tulip 12w 1450”.";
+const pickOr=ti=>!ti?{ask:ambAsk(CURD)}:!ti.length?{ask:NOTON}:null;
+let CURD=null;const nm=i=>lineLabel(CURD.items[i])||`Item ${i+1}`;
 const ASK="Which item? Name it (e.g. “trail price -100”) or use “item 2”.";
 
 /* each handler returns a message string, {ask:msg} when it needs clarification, or null when the clause isn't for it */
@@ -754,26 +836,47 @@ function runCommand(raw,d){
     if(p!=null&&!(refs&&refs.length)){d.discount={v:p,t:"pct"};return`Discount ${p}% (PKR ${fmt(t0().disc)})`}
     if(a==null&&p==null)return{ask:"How much discount? e.g. “discount 500” or “5% discount”."};
     const cur=d.discount?.t==="pct"?t0().disc:num(d.discount?.v);const more=/\b(more|extra|another|additional|plus)\b/.test(lc);
-    if(perUnit&&d.items.length){const ti=targetItems(lc,d);if(!ti)return{ask:ASK};
+    if(perUnit&&d.items.length){const ti=targetItems(lc,d);if(pickOr(ti))return pickOr(ti);
       let add=0;const parts=ti.map(i=>{const it=d.items[i],per=p!=null?Math.round(num(it.rate)*p/100):a;add+=per*num(it.qty);return`${fmt(per)} × ${fmt(it.qty)} on ${nm(i)}`});
       d.discount={v:cur+add,t:"amt"};S.ed.lastItem=ti.at(-1);return`Discount PKR ${fmt(add)} (${parts.join(", ")}) → total discount PKR ${fmt(cur+add)}`}
     d.discount={v:more?cur+a:a,t:"amt"};return`Discount PKR ${fmt(d.discount.v)}`;
   }
 
+  /* change size / option on a line: "change tulip 12w to 9w", "make tulip black", "tulip 12w cct 3000k" */
+  {const lcn=normOrder(c),hasTo=/\s(?:to|into)\s/.test(lcn),verb=/\b(change|make|set|switch|turn|swap)\b|\b(cct|colou?r|finish|beam|size|watt|wattage)\b/.test(lcn);
+   const varLines=d.items.map((it,i)=>[it,i]).filter(([it])=>{const p=S.products.find(x=>x.id===it.pid);return hasVar(p)||(p?.options||[]).length});
+   const freeNum=/(^|[^a-z0-9])\d/.test(lcn.replace(/\b\d+(?:\.\d+)?(?:w|k|watt|watts)\b|\d+°/g," "));
+   /* a bare "24 deg" / "white" right after adding a line applies to that line */
+   if(varLines.length&&!freeNum&&!findMentions(lcn).length&&S.ed.lastItem!=null&&d.items[S.ed.lastItem]){const it=d.items[S.ed.lastItem],p=S.products.find(x=>x.id===it.pid);
+     if(p){const r=readVariant(p,lcn);let rest=lcn;for(const[a,b]of r.spans)rest=rest.slice(0,a)+" ".repeat(b-a)+rest.slice(b);
+       if((r.v||Object.keys(r.opts).length)&&!rest.replace(/\b(and|also|with|in|make|it|set|to|cct|colou?r|finish|beam|size|the|this|that)\b/g," ").trim()){const was=lineLabel(it);setLineVariant(it,p,r.v?.id??it.vid,r.opts);return`${was} → ${lineLabel(it)}`}}}
+   if(varLines.length&&(verb||hasTo||!freeNum)&&!/\b(price|rate|qty|quantity|pcs|discount|warranty|remove|delete|drop|cancel|rename|specs?|unit|deliver(ed)?)\b/.test(lcn)){
+     const cut=hasTo?lcn.lastIndexOf(" to ")>=0?lcn.lastIndexOf(" to "):lcn.lastIndexOf(" into "):-1;
+     const before=cut>=0?lcn.slice(0,cut):lcn,afterTxt=cut>=0?lcn.slice(cut).replace(/^\s*(to|into)\s/,""):lcn;
+     const ti=targetItems(cut<0?stripOptionWords(before):before,d,cut<0);
+     if(ti&&ti.length){
+       const msgs=[];
+       for(const i of ti){const it=d.items[i],p=S.products.find(x=>x.id===it.pid);if(!p)continue;
+         const r=readVariant(p,afterTxt);if(!r.v&&!Object.keys(r.opts).length)continue;
+         if(!verb&&!hasTo&&r.v&&r.v.id!==it.vid)continue; /* "tulip 9w" next to a 12W line is a new line, not a size change */
+         const was=lineLabel(it);setLineVariant(it,p,r.v?.id??it.vid,r.opts);if(lineLabel(it)!==was)msgs.push(`${was} → ${lineLabel(it)}`);S.ed.lastItem=i}
+       if(msgs.length)return msgs.join(", ");
+     }else if(ti===null&&verb)return{ask:ASK};
+   }}
   /* item edits */
   if(/^(clear|remove|delete)\s+(all\s+)?(items|everything|all)$/.test(lc)){const n=d.items.length;d.items=[];return`Removed all ${n} items`}
   if(/^(remove|delete|drop|cancel|minus)\b/.test(lc)&&!/\b(qty|quantity|pcs|pieces|units|by)\b/.test(lc)){
     const r=itemsIn(lc,d);if(r===null)return{ask:ASK};if(!r.length)return null;
     const names=r.map(nm);r.sort((a,b)=>b-a).forEach(i=>d.items.splice(i,1));S.ed.lastItem=null;return`Removed ${names.join(", ")}`}
-  if(/\bwarrant(y|ee)\b|\bguarantee\b/.test(lc)){const ti=targetItems(lc.replace(/\b\d+\s*(year|yr|month|mo)s?\b/g,""),d);if(!ti)return{ask:ASK};
+  if(/\bwarrant(y|ee)\b|\bguarantee\b/.test(lc)){const ti=targetItems(lc.replace(/\b\d+\s*(year|yr|month|mo)s?\b/g,""),d);if(pickOr(ti))return pickOr(ti);
     const w=(c.match(/(?:warrant(?:y|ee)|guarantee)\s*(?:of|to|is|:|-)?\s*(.+)$/i)||[])[1]||(c.match(/(\d+\s*(?:years?|yrs?|months?)[^,]*)/i)||[])[1]||"";
     const val=/\b(no|none|remove)\b/i.test(c)?"":w.replace(/\b(for|on)\b.*$/i,"").trim();
     ti.forEach(i=>d.items[i].warranty=val);S.ed.lastItem=ti.at(-1);return val?`Warranty “${val}” on ${ti.map(nm).join(", ")}${warrantyText(val)?"":" (under 1 year, won't print)"}`:`Warranty removed from ${ti.map(nm).join(", ")}`}
-  if((m=c.match(/^(?:specs?|description|details?)\s*(?:of|for)?\s*(.*?)\s*[:\-]\s*(.+)$/i))){const ti=targetItems(m[1]||"this",d);if(!ti)return{ask:ASK};ti.forEach(i=>d.items[i].spec=m[2].trim());return`Specs on ${ti.map(nm).join(", ")}: ${m[2].trim()}`}
-  if((m=c.match(/^(?:rename|call)\s+(.+?)\s+(?:to|as)\s+(.+)$/i))){const ti=targetItems(m[1],d);if(!ti)return{ask:ASK};const was=nm(ti[0]);d.items[ti[0]].name=m[2].trim();return`Renamed ${was} → ${m[2].trim()}`}
-  if((m=lc.match(/\bunit\b.*?\b(?:to|as|=|is)?\s*(pcs|nos|sets?|meters?|mtrs?|m|rolls?|boxes|box|pairs?|ft|feet|kg|lot)\s*$/))){const ti=targetItems(lc.replace(/\bunit\b.*$/,""),d)||targetItems(lc,d);if(!ti)return{ask:ASK};
+  if((m=c.match(/^(?:specs?|description|details?)\s*(?:of|for)?\s*(.*?)\s*[:\-]\s*(.+)$/i))){const ti=targetItems(m[1]||"this",d);if(pickOr(ti))return pickOr(ti);ti.forEach(i=>d.items[i].spec=m[2].trim());return`Specs on ${ti.map(nm).join(", ")}: ${m[2].trim()}`}
+  if((m=c.match(/^(?:rename|call)\s+(.+?)\s+(?:to|as)\s+(.+)$/i))){const ti=targetItems(m[1],d);if(pickOr(ti))return pickOr(ti);const was=nm(ti[0]);d.items[ti[0]].name=m[2].trim();return`Renamed ${was} → ${m[2].trim()}`}
+  if((m=lc.match(/\bunit\b.*?\b(?:to|as|=|is)?\s*(pcs|nos|sets?|meters?|mtrs?|m|rolls?|boxes|box|pairs?|ft|feet|kg|lot)\s*$/))){const ti=targetItems(lc.replace(/\bunit\b.*$/,""),d)||targetItems(lc,d);if(pickOr(ti))return pickOr(ti);
     const u={pcs:"Pcs",nos:"Nos",m:"Mtr",meter:"Mtr",meters:"Mtr",mtr:"Mtr",mtrs:"Mtr"}[m[1]]||m[1][0].toUpperCase()+m[1].slice(1);ti.forEach(i=>d.items[i].unit=u);return`Unit ${u} on ${ti.map(nm).join(", ")}`}
-  if(dn&&/\bdeliver(ed|ing)?\b/.test(lc)){const q=amountIn(lc.replace(/\bdeliver(ed|ing)?\b/,""));const ti=targetItems(lc,d);if(!ti)return{ask:ASK};
+  if(dn&&/\bdeliver(ed|ing)?\b/.test(lc)){const q=amountIn(lc.replace(/\bdeliver(ed|ing)?\b/,""));const ti=targetItems(lc,d);if(pickOr(ti))return pickOr(ti);
     if(/\b(all|full|everything)\b/.test(lc)){ti.forEach(i=>d.items[i].qtyDel=d.items[i].qty);return`Delivered in full: ${ti.map(nm).join(", ")}`}
     if(q==null)return{ask:"How many were delivered?"};ti.forEach(i=>d.items[i].qtyDel=q);return`Delivered ${fmt(q)} × ${ti.map(nm).join(", ")}`}
   const isQty=/\b(qty|quantity|pcs|pieces|piece|units|nos|lights?|fixtures?)\b|\b(\d+)\s+more\b|\b(add|plus)\s+\d+\b/.test(lc);
@@ -781,12 +884,12 @@ function runCommand(raw,d){
   const isDelta=/\b(reduce|lower|decrease|less|minus|cut|drop|down|cheaper|increase|raise|up|more|plus|add|extra|costlier)\b|[+\-]\s*\d/.test(lc);
   const neg=/\b(reduce|lower|decrease|less|minus|cut|drop|down|cheaper)\b|-\s*\d/.test(lc);
   if(isQty&&!(/\b(price|rate|cost)\b/.test(lc))){
-    const ti=targetItems(lc.replace(/\b\d+\s+more\b/,"more"),d);if(!ti)return d.items.length?{ask:ASK}:null;
+    const ti=targetItems(lc.replace(/\b\d+\s+more\b/,"more"),d);if(ti&&!ti.length)return null;if(!ti)return d.items.length?{ask:ASK}:null;
     const q=amountIn(lc);if(q==null)return{ask:"What quantity?"};
     ti.forEach(i=>{const it=d.items[i],old=num(it.qty);it.qty=isDelta?Math.max(0,old+(neg?-q:q)):q;if(dn)it.qtyDel=Math.min(num(it.qtyDel)||it.qty,it.qty);else it.qtyDel=it.qty});
     S.ed.lastItem=ti.at(-1);return ti.map(i=>`${nm(i)} qty → ${fmt(d.items[i].qty)}`).join(", ")}
   if(!dn&&(isPrice||(isDelta&&/\bby\b/.test(lc)))&&d.items.length){
-    const ti=targetItems(lc,d);if(!ti)return{ask:ASK};
+    const ti=targetItems(lc,d);if(pickOr(ti))return pickOr(ti);
     const p=pctIn(lc),a=amountIn(lc);if(a==null&&p==null)return{ask:"By how much? e.g. “trail price -100” or “trail rate 4750”."};
     const abs=!isDelta||/\b(to|=|at|as)\s*(rs\.?|pkr)?\s*\d/.test(lc);
     const msgs=ti.map(i=>{const it=d.items[i],old=num(it.rate);
@@ -802,64 +905,161 @@ function setTotal(d,target,label){
   for(let k=0;k<3&&calc(d).grand!==target;k++){disc+=calc(d).grand-target;d.discount={v:disc,t:"amt"}}
   return(label||`Total set to PKR ${fmt(calc(d).grand)}`)+` (discount PKR ${fmt(disc)})`;
 }
-const CMD_HELP=`<b>New items</b> (uses AI): “45 trail 4850, 20 convex”<br><b>Items</b>: “trail price -100” · “item 2 rate 4500” · “convex +5%” · “qty trail 50” · “5 more trail” · “remove convex” · “trail warranty 2 years” · “unit trail mtr” · “specs trail: 3W · IP65”<br><b>Totals</b>: “discount 500” · “5% discount” · “100 off each trail” · “make total 200000” · “round off” · “add gst” · “gst 17%” · “no gst”<br><b>Customer</b>: “for central square” · “attn Mr. Talha” · “phone 0300 1234567” · “address: Plot 12, Multan”<br><b>Dates</b>: “due in 7 days” · “valid till 30 oct” · “date yesterday”<br><b>Text</b>: “note: deliver after 5pm” · “add term: 50% advance” · “remove term warranty”<br><b>Delivery</b>: “delivered 30 trail” · “vehicle MN-1234” · “driver Aslam” · “3 cartons”<br><b>Actions</b>: “hide photos” · “save” · “pdf” · “convert to invoice”`;
+const CMD_HELP=`<b>New items</b>: “45 trail 4850, 20 convex” · sizes &amp; options: “20 tulip 12w 4000k black 1450”<br><b>Sizes &amp; options</b>: “change tulip 12w to 9w” · “make tulip black” · “tulip 12w cct warm”<br><b>Items</b>: “trail price -100” · “item 2 rate 4500” · “convex +5%” · “qty trail 50” · “5 more trail” · “remove convex” · “trail warranty 2 years” · “unit trail mtr” · “specs trail: 3W · IP65”<br><b>Totals</b>: “discount 500” · “5% discount” · “100 off each trail” · “make total 200000” · “round off” · “add gst” · “gst 17%” · “no gst”<br><b>Customer</b>: “for central square” · “attn Mr. Talha” · “phone 0300 1234567” · “address: Plot 12, Multan”<br><b>Dates</b>: “due in 7 days” · “valid till 30 oct” · “date yesterday”<br><b>Text</b>: “note: deliver after 5pm” · “add term: 50% advance” · “remove term warranty”<br><b>Delivery</b>: “delivered 30 trail” · “vehicle MN-1234” · “driver Aslam” · “3 cartons”<br><b>Actions</b>: “hide photos” · “save” · “pdf” · “convert to invoice”`;
 function splitClauses(txt){
   return txt.split(/\n|;/).flatMap(line=>{const l=line.trim();if(!l)return[];
     if(/^(notes?|add\s+notes?|append\s+notes?|address|addr|add\s+(a\s+)?(term|condition|t&c)|remove\s+(the\s+)?(term|condition)|specs?\b|description|details?\b|customer|client|bill to|deliver to)\b/i.test(l))return[l];
     return l.split(/\s*,(?!\d)\s*|\s+\b(?:and|also|then|&)\b\s+/i).map(x=>x.trim()).filter(Boolean)});
 }
 /* does a leftover clause look like a new order line for the AI? */
-const looksLikeItems=(c,d)=>/\d/.test(c)&&(S.products.some(p=>`${p.name} ${p.keywords||""} ${p.model||""}`.toLowerCase().split(/[^a-z0-9]+/).filter(w=>w.length>2&&!STOP.has(w)).some(w=>c.toLowerCase().includes(w)))||!d.items.length||/\b\d+\s*w\b/i.test(c));
+const looksLikeItems=(c,d)=>/\d/.test(c)&&(S.products.some(p=>`${p.name} ${p.keywords||""} ${p.model||""} ${(p.variants||[]).map(v=>v.model||"").join(" ")}`.toLowerCase().split(/[^a-z0-9]+/).filter(w=>w.length>2&&!STOP.has(w)).some(w=>c.toLowerCase().includes(w)))||!d.items.length||/\b\d+\s*w\b/i.test(c));
 
+/* ---------- built-in order reader (no AI): catalogue words + sizes + options + quantities + rates ---------- */
+const GENERIC=new Set("led light lights series downlight downlights black white warm cool lamp model the and with for pcs pc set spot".split(" "));
+function catIndex(){
+  const tok=s=>String(s||"").toLowerCase().match(/[a-z][a-z0-9\-]{2,}/g)||[];
+  const phrases=[],count=new Map();
+  for(const p of S.products){
+    const kws=String(p.keywords||"").toLowerCase().split(/[,;]+/).map(x=>x.trim()).filter(x=>x.length>1);
+    if(p.model)kws.push(String(p.model).toLowerCase());
+    for(const k of kws)phrases.push({p,text:k,w:3+k.length/20});
+    for(const v of p.variants||[])for(const c of modelCodes(v.model))phrases.push({p,text:c,w:4,vid:v.id});
+    for(const t of new Set([...tok(p.name),...tok(p.keywords)]))count.set(t,(count.get(t)||0)+1);
+  }
+  for(const p of S.products)for(const t of new Set(tok(p.name)))if(count.get(t)===1&&!GENERIC.has(t)&&!STOP.has(t))phrases.push({p,text:t,w:2});
+  return phrases;
+}
+function findMentions(lc){
+  const out=[];
+  for(const ph of catIndex()){const re=new RegExp(`(^|[^a-z0-9])(${escRe(ph.text)})(?=$|[^a-z0-9])`,"g");let m;
+    while((m=re.exec(lc))){const start=m.index+m[1].length;out.push({p:ph.p,start,end:start+ph.text.length,w:ph.w,vid:ph.vid})}}
+  out.sort((a,b)=>a.start-b.start||b.w-a.w);
+  const kept=[];for(const m of out){const last=kept.at(-1);
+    if(last&&m.start<last.end){if(m.w>last.w&&m.p!==last.p)kept[kept.length-1]=m;continue}
+    if(last&&last.p===m.p&&!/\d/.test(lc.slice(last.end,m.start))){last.end=m.end;if(m.vid)last.vid=m.vid;continue}
+    kept.push(m)}
+  return kept;
+}
+/* returns {items:[{productId,variantId,options,description,qty,rate}], customer, ok} */
+function localParse(text,d){
+  const lc=normOrder(text);
+  const ms=findMentions(lc);
+  let blank=lc.split("");
+  const wipe=(a,b)=>{for(let i=a;i<b&&i<blank.length;i++)blank[i]=" "};
+  const info=ms.map((mt,i)=>{
+    const lo=i?ms[i-1].end:0,hi=i<ms.length-1?ms[i+1].start:lc.length;
+    /* the size/options for this product sit between the previous and next product mention */
+    const seg=lc.slice(lo,hi).split("");for(let k=mt.start-lo;k<mt.end-lo;k++)seg[k]=" ";
+    const r=readVariant(mt.p,seg.join(""));
+    if(!r.v&&mt.vid)r.v=varOf(mt.p,mt.vid);
+    for(const[a,b]of r.spans)wipe(lo+a,lo+b);
+    wipe(mt.start,mt.end);
+    return{mt,lo,hi,r};
+  });
+  const B=blank.join("");
+  const nums=[];const re=/(?<![a-z0-9])(\d[\d,]*(?:\.\d+)?)(\s*(?:k|w|watt|watts|%|m|mtr|meter|meters|ft|pcs|pc|nos|x|°)\b|°)?/gi;let m;
+  while((m=re.exec(B))){const unit=(m[2]||"").trim();if(/^(w|watt|watts|%|°)$/.test(unit))continue;
+    let v=parseFloat(m[1].replace(/,/g,""));if(unit==="k")v*=1000;nums.push({v,at:m.index,end:m.index+m[0].length,unit,qtyish:/^(pcs|pc|nos|x)$/.test(unit)})}
+  const items=[];let ok=true;
+  if(ms.length){
+    info.forEach(({mt,lo,hi,r},i)=>{
+      const before=nums.filter(n=>n.end<=mt.start&&n.at>=lo&&!n.used),after=nums.filter(n=>n.at>=mt.end&&n.end<=hi&&!n.used);
+      let qty=null,rate=null;
+      const qb=before.at(-1);if(qb){qty=qb.v;qb.used=true}
+      for(const n of after){if(n.used)continue;
+        if(n.qtyish&&qty==null){qty=n.v;n.used=true;continue}
+        if(rate==null&&(n.v>=100||qty!=null)){rate=n.v;n.used=true;continue}
+        if(qty==null&&n.v<100){qty=n.v;n.used=true}}
+      items.push({productId:mt.p.id,variantId:r.v?.id||null,options:r.opts,description:mt.p.name,qty,rate});
+    });
+  }else{
+    const words=B.replace(/(?<![a-z])\d[\d,]*(?:\.\d+)?\s*(?:k|pcs|pc|nos|x)?\b/g," ").replace(/[^a-z0-9\s\-\/×.]/g," ").split(/\s+/).filter(w=>w&&!STOP.has(w));
+    if(nums.length&&words.length){const q=nums.find(n=>n.v<100||n.qtyish)||null,r=nums.find(n=>n!==q&&n.v>=100)||null;
+      items.push({productId:null,description:words.join(" ").replace(/\b\w/g,c=>c.toUpperCase()),qty:q?.v??null,rate:r?.v??null});ok=false}
+  }
+  let customer=null;
+  const firstAt=Math.min(ms[0]?.start??Infinity,nums[0]?.at??Infinity);
+  const lead=firstAt===Infinity?[]:lc.slice(0,firstAt).replace(/[^a-z\s.&']/g," ").split(/\s+/).filter(w=>w&&!STOP.has(w)&&!/^(mr|mrs|ms|sir|for|to)\.?$/.test(w));
+  if(lead.length&&ms.length){
+    const scored=S.customers.map(c=>{const hay=`${c.name} ${c.attn||""}`.toLowerCase();return{c,s:lead.filter(w=>w.length>2&&hay.includes(w)).length}}).filter(x=>x.s>0).sort((a,b)=>b.s-a.s);
+    if(scored.length&&(scored.length===1||scored[0].s>scored[1].s))customer={id:scored[0].c.id};
+    else customer={name:lead.join(" ").replace(/\b\w/g,c=>c.toUpperCase())};
+  }
+  return{items,customer,ok:ok&&items.length>0};
+}
+const shortKey=p=>String(p.keywords||"").split(/[,;]/)[0].trim()||String(p.name).split(/[\s–-]+/).filter(w=>w.length>2&&!GENERIC.has(w.toLowerCase())).slice(-2)[0]||p.name;
+/* apply parsed lines (built-in reader or AI) to the document */
+function applyParsed(res,d,done,asks){
+  if(res.customer){
+    const c=res.customer.id&&S.customers.find(x=>x.id===res.customer.id);
+    if(c){if(d.customer.id!==c.id){d.customer={id:c.id,name:c.name||"",attn:c.attn||"",phone:c.phone||"",address:c.address||"",ntn:c.ntn||""};done.push(`Customer: ${c.name}`)}}
+    else if(res.customer.name&&!d.customer.name){d.customer={...d.customer,id:"",name:String(res.customer.name),attn:String(res.customer.attn||"")};done.push(`Customer: ${d.customer.name}${d.customer.attn?" · "+d.customer.attn:""}`)}
+  }
+  for(const it of res.items||[]){
+    const q0=it.qty==null?null:num(it.qty),q=q0>0?q0:null,rate=it.rate==null?null:num(it.rate);
+    const p=it.productId&&S.products.find(x=>x.id===it.productId);
+    if(!p){d.items.push({pid:"",vid:"",opts:{},name:String(it.description||"Item"),spec:"",warranty:"",img:"",unit:"Pcs",qty:q??1,qtyDel:q??1,rate:rate??0});
+      asks.push(`Added “${it.description||"Item"}”, not in your catalogue. Check the name and rate.`);S.ed.lastItem=d.items.length-1;continue}
+    const v=varOf(p,it.variantId);
+    if(hasVar(p)&&!v){asks.push(`${p.name}: which size? ${p.variants.map(x=>x.label).join(" · ")}. Type e.g. “${q??10} ${shortKey(p)} ${p.variants[Math.min(1,p.variants.length-1)].label}${rate?" "+rate:""}”.`);continue}
+    const opts={};for(const o of optsFor(p,v)){const val=it.options?.[o.name];if(val&&o.values.includes(val))opts[o.name]=val}
+    const label=[p.name,v?.label,...Object.values(opts)].filter(Boolean).join(" · ");
+    const ex=d.items.findIndex(x=>x.pid===p.id&&(x.vid||"")===(v?.id||"")&&sameOpts(x.opts,opts));
+    if(ex>=0){const row=d.items[ex];if(q!=null){row.qty=q;row.qtyDel=q}if(rate!=null)row.rate=rate;S.ed.lastItem=ex;done.push(`Updated ${label}: ${fmt(row.qty)} × ${fmt(row.rate)}`);continue}
+    const row=itemFromProduct(p,q??1,rate??null,v?.id,opts);d.items.push(row);S.ed.lastItem=d.items.length-1;
+    done.push(`Added ${fmt(row.qty)} × ${label} @ ${fmt(row.rate)}${q==null?" (qty not given, set to 1)":""}`);
+    const miss=optsFor(p,v).filter(o=>!opts[o.name]).map(o=>o.name);
+    if(miss.length)asks.push(`${label}: ${miss.join(" and ")} not chosen. Pick below, or type e.g. “${shortKey(p)} ${v?.label||""} ${optsFor(p,v).filter(o=>!opts[o.name]).map(o=>o.values[0]).join(" ")}”.`.replace(/\s+”/,"”"));
+    if(!num(row.rate)&&d.type!=="DN")asks.push(`${label}: no price set. Type “${shortKey(p)} ${v?.label||""} rate 1450” or add the price in Products.`.replace(/\s+rate/," rate"));
+  }
+}
 function cmdLogHTML(){const L=S.ed?.cmdLog;if(!L)return"";
   return `<ul class="cmdlog">${L.done.map(x=>`<li class="ok">${esc(x)}</li>`).join("")}${L.asks.map(x=>`<li class="ask">${esc(x)}</li>`).join("")}</ul>${L.help?`<div class="cmdhelp">${CMD_HELP}</div>`:""}`}
-async function aiItems(txt,d){
+const AIX={ready:()=>!!SAMPLE,json:p=>SAMPLE.json(p,{modelTier:"default"})};
+async function aiItems(clauses,d){
   const done=[],asks=[];
-  const cat=S.products.map(p=>({id:p.id,name:p.name,specs:p.spec||"",model:p.model||"",keywords:p.keywords||"",price:num(p.price),unit:p.unit||"Pcs"}));
+  const cat=S.products.map(p=>({id:p.id,name:p.name,specs:p.spec||"",model:p.model||"",keywords:p.keywords||"",price:num(p.price),unit:p.unit||"Pcs",
+    ...(hasVar(p)?{sizes:p.variants.map(v=>({id:v.id,label:v.label,model:v.model||"",spec:v.spec||""}))}:{}),
+    ...((p.options||[]).length?{options:p.options.map(o=>({name:o.name,values:o.values,onlyForSizes:o.only||[]}))}:{})}));
   const cus=S.customers.map(c=>({id:c.id,name:c.name,attn:c.attn||""}));
   const prompt=`You turn shorthand order notes from a lighting company in Multan, Pakistan into structured data. Do not do any arithmetic or totals.
 CATALOGUE (JSON): ${JSON.stringify(cat)}
 SAVED CUSTOMERS (JSON): ${JSON.stringify(cus)}
-ORDER TEXT: """${txt}"""
+ORDER TEXT: """${clauses.join(", ")}"""
 Rules:
 - Match each product mention to a catalogue id by series name, keyword, wattage, model or description. Use null productId only if nothing in the catalogue fits; then give a clean description.
-- A small number right before a product is the quantity. A larger number (usually 3+ digits) after a product is the unit rate in PKR. If no rate is written, rate is null. If no quantity is written, qty is null.
-- If the text names a person and/or business, match a saved customer (fuzzy, e.g. "central square" = "Mall of Central Square") and return its customerId; otherwise newCustomer with a Title Case company name and attn like "Mr. Mashood". If no customer is mentioned, both are null.
+- If the product has "sizes", return the matching size id as sizeId (by wattage, label or model code), or null if no size is written. Never guess a size.
+- If the product has "options", return the chosen values in "options" using the exact option names and values listed (e.g. "warm" = 3000K, "cool white"/"daylight" = 6000K). Leave out options that aren't written.
+- A small number right before a product is the quantity. A larger number (usually 3+ digits) after a product is the unit rate in PKR. Wattage (e.g. 12w) and colour temperature (e.g. 4000k) are not quantities or rates. If no rate is written, rate is null. If no quantity is written, qty is null.
+- If the text names a person and/or business, match a saved customer (fuzzy) and return its customerId; otherwise newCustomer with a Title Case company name and attn like "Mr. Mashood". If no customer is mentioned, both are null.
 Reply with JSON only, exactly this shape:
-{"customerId": string|null, "newCustomer": {"name": string, "attn": string}|null, "items": [{"productId": string|null, "description": string, "qty": number|null, "rate": number|null}]}`;
+{"customerId": string|null, "newCustomer": {"name": string, "attn": string}|null, "items": [{"productId": string|null, "sizeId": string|null, "options": {"<option name>": "<value>"}, "description": string, "qty": number|null, "rate": number|null}]}`;
   try{
-    const r=await SAMPLE.json(prompt,{modelTier:"default"});
-    if(!r||typeof r!=="object")return{done,asks:["Couldn't read those items. Name the product and quantity."]};
-    const c=r.customerId&&S.customers.find(x=>x.id===r.customerId);
-    if(c){d.customer={id:c.id,name:c.name||"",attn:c.attn||"",phone:c.phone||"",address:c.address||"",ntn:c.ntn||""};done.push(`Customer: ${c.name}`)}
-    else if(r.newCustomer?.name&&!d.customer.name){d.customer={...d.customer,id:"",name:String(r.newCustomer.name),attn:String(r.newCustomer.attn||"")};done.push(`Customer: ${d.customer.name}${d.customer.attn?" · "+d.customer.attn:""}`)}
-    for(const it of Array.isArray(r.items)?r.items:[]){
-      const q0=it.qty==null?null:num(it.qty),q=q0>0?q0:null,rate=it.rate==null?null:num(it.rate);
-      const p=it.productId&&S.products.find(x=>x.id===it.productId);
-      const ex=p?d.items.findIndex(x=>x.pid===p.id):-1;
-      if(ex>=0){const row=d.items[ex];if(q!=null){row.qty=q;row.qtyDel=q}if(rate!=null)row.rate=rate;S.ed.lastItem=ex;
-        done.push(`Updated ${row.name}: ${fmt(row.qty)} × ${fmt(row.rate)}`);continue}
-      if(p){d.items.push(itemFromProduct(p,q??1,rate??num(p.price)));done.push(`Added ${fmt(q??1)} × ${p.name} @ ${fmt(rate??num(p.price))}`)}
-      else{d.items.push({pid:"",name:String(it.description||"Item"),spec:"",warranty:"",img:"",unit:"Pcs",qty:q??1,qtyDel:q??1,rate:rate??0});asks.push(`Added “${it.description||"Item"}”, not in your catalogue. Check its rate.`)}
-      S.ed.lastItem=d.items.length-1;
-    }
+    const r=await AIX.json(prompt);
+    if(!r||typeof r!=="object")throw new Error("The AI reply couldn't be read.");
+    applyParsed({customer:r.customerId?{id:r.customerId}:r.newCustomer?.name?{name:r.newCustomer.name,attn:r.newCustomer.attn}:null,
+      items:(Array.isArray(r.items)?r.items:[]).map(x=>({...x,variantId:x.sizeId||null,options:x.options||{}}))},d,done,asks);
     if(!done.length&&!asks.length)asks.push("No items found in that text.");
-  }catch(e){asks.push(e?.code==="rate_limited"?"AI is busy. Wait a moment and try again.":e?.code==="not_granted"?"AI access was declined for this page.":"Couldn't read the new items. Try again or add them by hand.")}
+  }catch(e){
+    asks.push((e?.code==="rate_limited"?"AI is busy.":e?.message||"AI request failed.")+" Used built-in matching instead.");
+    for(const cl of clauses)applyParsed(localParse(cl,d),d,done,asks);
+  }
   return{done,asks};
 }
 async function runAI(){
   const box=$("#aiText"),txt=box.value.trim();S.ed.aiText=txt;if(!txt)return;
   const d=S.ed.doc,snap=clone(d);S.ed.after=null;
   const done=[],asks=[],rest=[];let help=false;
-  for(const cl of splitClauses(txt)){let r;try{r=runCommand(cl,d)}catch{r=null}
+  for(const cl of splitClauses(txt)){let r;try{r=runCommand(cl,d)}catch(e){console.error(e);r=null}
     if(r===null)rest.push(cl);else if(r?.help)help=true;else if(r?.ask)asks.push(`“${cl}”: ${r.ask}`);else if(r)done.push(r)}
-  const forAI=rest.filter(c=>looksLikeItems(c,d));
-  rest.filter(c=>!forAI.includes(c)).forEach(c=>asks.push(`Didn't understand “${c}”. Tap “What can I type?” for examples.`));
-  if(forAI.length){
-    if(!SAMPLE)asks.push(`AI isn't available here, so “${forAI.join(", ")}” wasn't added. Add it by hand below.`);
-    else{const b=$("#aiBtn");if(b)b.disabled=true;const busy=$("#aiBusy");if(busy)busy.textContent="Reading new items…";
-      const r=await aiItems(forAI.join(", "),d);done.push(...r.done);asks.push(...r.asks)}
-  }
+  const itemClauses=rest.filter(c=>looksLikeItems(c,d));
+  rest.filter(c=>!itemClauses.includes(c)).forEach(c=>asks.push(`Didn't understand “${c}”. Tap “What can I type?” for examples.`));
+  const forAI=[];
+  for(const cl of itemClauses){const r=localParse(cl,d);
+    if(!r.items.length){asks.push(`Didn't understand “${cl}”. Try “45 trail 4850”.`);continue}
+    if(r.ok||!AIX.ready())applyParsed(r,d,done,asks);else forAI.push(cl)}
+  if(forAI.length){const b=$("#aiBtn");if(b)b.disabled=true;const busy=$("#aiBusy");if(busy)busy.textContent="Asking AI about "+forAI.length+" line"+(forAI.length>1?"s":"")+"…";
+    const r=await aiItems(forAI,d);done.push(...r.done);asks.push(...r.asks)}
   const changed=JSON.stringify(snap)!==JSON.stringify(d);
   if(changed){S.ed.undo=snap;S.ed.dirty=true}
   if(!asks.length&&!help)S.ed.aiText="";
@@ -891,7 +1091,7 @@ const FONT_B64={normal:"d09GRgABAAAAADmwAA8AAAAAVKQAAQABAAAAAAAAAAAAAAAAAAAAAAAA
 const LIBS={pdf:"https://cdn.jsdelivr.net/npm/pdf-lib@1.17.1/dist/pdf-lib.min.js",fk:"https://cdn.jsdelivr.net/npm/@pdf-lib/fontkit@1.1.1/dist/fontkit.umd.min.js"};
 const b64ToBytes=b=>{const s=atob(b);const u=new Uint8Array(s.length);for(let i=0;i<s.length;i++)u[i]=s.charCodeAt(i);return u};
 const imgKind=u=>u&&u[0]===0x89&&u[1]===0x50&&u[2]===0x4E?"png":u&&u[0]===0xFF&&u[1]===0xD8?"jpg":null;
-const winAnsi=s=>String(s??"").replace(/[‘’]/g,"'").replace(/[“”]/g,'"').replace(/−/g,"-")
+const winAnsi=s=>String(s??"").replace(/[Φφ⌀]/g,"Ø").replace(/[‘’]/g,"'").replace(/[“”]/g,'"').replace(/−/g,"-")
   .replace(/[^\x09\x0A\x20-\x7E -ÿ–—•…€™]/g,"?");
 function loadScript(src){return new Promise((res,rej)=>{const s=document.createElement("script");s.src=src;s.onload=res;s.onerror=rej;document.head.appendChild(s)})}
 let libsP=null;
@@ -918,7 +1118,7 @@ async function buildPDF(d,env={}){
   const F={},cover={};let clean=winAnsi;
   try{
     for(const k of["normal","bold","italic"]){const bytes=env.fonts?.[k]||b64ToBytes(FONT_B64[k]);F[k]=await doc.embedFont(bytes,{subset:true});cover[k]=new Set(fontkit.create(bytes).characterSet)}
-    clean=(str,style)=>Array.from(String(str??"").replace(/[‘’]/g,"'").replace(/[“”]/g,'"')).map(ch=>ch==="\n"||cover[style||"normal"].has(ch.codePointAt(0))?ch:"?").join("");
+    clean=(str,style)=>Array.from(String(str??"").replace(/[Φφ⌀]/g,"Ø").replace(/[‘’]/g,"'").replace(/[“”]/g,'"')).map(ch=>ch==="\n"||cover[style||"normal"].has(ch.codePointAt(0))?ch:"?").join("");
   }catch{F.normal=await doc.embedFont(StandardFonts.Helvetica);F.bold=await doc.embedFont(StandardFonts.HelveticaBold);F.italic=await doc.embedFont(StandardFonts.HelveticaOblique);clean=winAnsi}
   const hex=h=>{const n=parseInt(h.slice(1),16);return rgb((n>>16&255)/255,(n>>8&255)/255,(n&255)/255)};
   const G="#6d9f53",DK="#2b3a2f",INK="#1f2933",GR="#6b7280",G2="#4b5563",LN="#e3e7e1",BOX="#f4f7f2",WH="#ffffff";
@@ -1112,7 +1312,8 @@ function vProducts(){
 function renderPList(){const el=$("#plist");if(!el)return;
   el.innerHTML=S.products.length?`<div class="pgrid">${S.products.map(p=>`<div class="pcard"><div class="ph">${p.img?`<img src="${esc(p.img)}" alt="">`:"<span>No photo</span>"}</div>
    <div class="bd"><div class="nm">${esc(p.name)}</div>${p.spec?`<div class="sp">${esc(p.spec)}</div>`:""}${p.warranty?(warrantyText(p.warranty)?`<div class="sp wr">${esc(warrantyText(p.warranty))}</div>`:`<div class="sp">${esc(p.warranty)} · not printed (under 1 year)</div>`):""}${p.keywords?`<div class="sp">Shorthand: ${esc(p.keywords)}</div>`:""}
-   <div class="spread pr"><span>PKR ${fmt(p.price)} / ${esc(p.unit||"Pcs")}</span><button class="btn sm" data-act="editprod" data-id="${p.id}">Edit</button></div></div></div>`).join("")}</div>`
+   ${hasVar(p)?`<div class="vchips">${p.variants.map(v=>`<span>${esc(v.label)}</span>`).join("")}</div>${(p.options||[]).filter(o=>o.values?.length).map(o=>`<div class="sp">${esc(o.name)}: ${esc(o.values.join(", "))}${o.only?.length?` <i>(${esc(o.only.join(", "))} only)</i>`:""}</div>`).join("")}`:""}
+   <div class="spread pr"><span>${hasVar(p)?(()=>{const ps=p.variants.map(v=>varPrice(p,v)).filter(Boolean);return ps.length?`From PKR ${fmt(Math.min(...ps))}`:`<span class="q low">Prices not set</span>`})():`PKR ${fmt(p.price)}`} / ${esc(p.unit||"Pcs")}</span><button class="btn sm" data-act="editprod" data-id="${p.id}">Edit</button></div></div></div>`).join("")}</div>`
    :`<div class="card empty">${S.ready.products||!DB?"No products yet. Add your first one with a photo, price and the shorthand you use for it.":"Loading catalogue…"}</div>`}
 function renderPForm(){const el=$("#pform");if(!el)return;const p=S.pform;
   if(!p){el.innerHTML=`<div class="card muted" style="font-size:13px">Pick a product to edit, or add a new one. The <b>shorthand</b> field teaches quick entry what you call it, e.g. “trail, step light”.</div>`;return}
@@ -1123,6 +1324,12 @@ function renderPForm(){const el=$("#pform");if(!el)return;const p=S.pform;
    <label class="f">Warranty<input data-pf="warranty" list="wlist" value="${esc(p.warranty||"")}" placeholder="e.g. 2 years replacement warranty"><span class="muted" style="font-weight:400">Printed only when it's 1 year or more. Leave blank or under a year and it stays off the document.</span></label>
    <div class="g2 keep"><label class="f">Price (PKR)<input data-pf="price" inputmode="decimal" value="${esc(p.price)}"></label><label class="f">Unit<input data-pf="unit" value="${esc(p.unit||"Pcs")}"></label></div>
    <div class="g2"><label class="f">Model / code<input data-pf="model" value="${esc(p.model)}"></label><label class="f">Shorthand words<input data-pf="keywords" value="${esc(p.keywords)}" placeholder="trail, step"></label></div>
+   <div class="vsect"><div class="spread"><h3>Sizes</h3><button class="btn sm" data-act="addvar">Add size</button></div>
+     <div class="muted hint">For a range like 5W / 7W / 12W. Each size has its own price, code and spec line. Leave empty for a single-size product.${(p.variants||[]).length?" The price above is used only for sizes with no price.":""}</div>
+     ${(p.variants||[]).map((v,i)=>`<div class="vrow"><input data-vf="${i}.label" value="${esc(v.label)}" placeholder="Size · 12W" aria-label="Size name"><input data-vf="${i}.price" inputmode="decimal" value="${esc(v.price)}" placeholder="Price" aria-label="Price"><input data-vf="${i}.model" value="${esc(v.model)}" placeholder="Code" aria-label="Code"><button class="btn sm ghost danger" data-act="rmvar" data-i="${i}" aria-label="Remove size">✕</button><input class="vspec" data-vf="${i}.spec" value="${esc(v.spec)}" placeholder="Spec line · 12W · 1080 lm · Cut-out Φ90-100" aria-label="Spec line"></div>`).join("")}</div>
+   <div class="vsect"><div class="spread"><h3>Options chosen per order</h3><button class="btn sm" data-act="addopt">Add option</button></div>
+     <div class="muted hint">e.g. CCT: 3000K, 4000K, 6000K · Finish: White, Black. Leave “only for sizes” empty if every size has it.</div>
+     ${(p.options||[]).map((o,i)=>`<div class="orow"><input data-of="${i}.name" value="${esc(o.name)}" placeholder="Option · CCT" aria-label="Option name"><input data-of="${i}.values" value="${esc(o.values)}" placeholder="Choices · 3000K, 4000K, 6000K" aria-label="Choices"><input data-of="${i}.only" value="${esc(o.only)}" placeholder="Only for sizes (optional) · 5W, 7W" aria-label="Only for sizes"><button class="btn sm ghost danger" data-act="rmopt" data-i="${i}" aria-label="Remove option">✕</button></div>`).join("")}</div>
    <div class="row"><button class="btn pri" data-act="saveprod">Save product</button><button class="btn ghost" data-act="cancelprod">Cancel</button>
    ${p.id?`<button class="btn sm danger ${S.armed===p.id?"armed":""}" data-act="delprod" style="margin-left:auto">${S.armed===p.id?"Confirm delete":"Delete"}</button>`:""}</div></div>`}
 
@@ -1166,6 +1373,9 @@ async function vSettings(){
         <span class="logo-cta"><b>Drop your logo here</b> or tap to choose a PNG or JPG</span><input type="file" accept="image/png,image/jpeg" id="logoFile" hidden></label>
       <div id="logoInfo" class="logo-info">Checking resolution…</div>
       <ul class="tips"><li>PNG with a white or transparent background works best.</li><li>The header slot is 2.2 : 1 (wide). Square logos still fit, just smaller.</li><li>About 500 px wide or more prints sharp at 300 dpi. The file is used as-is, never re-compressed.</li></ul></div>
+    <div class="card stack"><h2>Import products</h2>
+      <div class="muted" style="font-size:13px">Load a product file (.json) prepared for you. Products with the same ID are updated; everything else is kept.</div>
+      <div class="row"><label class="btn">Choose product file<input type="file" accept="application/json,.json" id="importProducts" hidden></label><span id="importMsg" class="muted" style="font-size:13px"></span></div></div>
     <div class="card stack"><h2>Numbering ${y}</h2><div class="muted" style="font-size:13px">Last number used this year. The next document gets this + 1.</div>
       <div class="g3">${["QT","INV","DN"].map(t=>`<label class="f">RL-${t}<input id="cnt-${t}" inputmode="numeric" value="…"></label>`).join("")}</div>
       <button class="btn" data-act="savecounters">Update numbering</button></div></div></div>`;
@@ -1217,12 +1427,19 @@ document.addEventListener("click",async e=>{
     case"edconvert":if(S.ed.dirty&&!(await saveDoc()))break;convert(S.ed.doc,b.dataset.to);break;
     case"savecust":{const c=S.ed.doc.customer;if(!c.name.trim()){toast("Enter a customer name first");break}
       const cid=c.id||uid("c");c.id=cid;await put("customers",cid,{name:c.name,attn:c.attn||"",phone:c.phone||"",address:c.address||"",ntn:c.ntn||""});$("#custPick").innerHTML=custOptions(cid);toast("Customer saved");break}
-    case"newprod":S.pform={id:"",name:"",spec:"",warranty:"",price:"",unit:"Pcs",model:"",keywords:"",img:""};S.armed=null;renderPForm();$("#pform").scrollIntoView({block:"nearest"});break;
-    case"editprod":S.pform=clone(S.products.find(p=>p.id===id));renderPForm();$("#pform").scrollIntoView({block:"nearest"});break;
+    case"newprod":S.pform={id:"",name:"",spec:"",warranty:"",price:"",unit:"Pcs",model:"",keywords:"",img:"",variants:[],options:[]};S.armed=null;renderPForm();$("#pform").scrollIntoView({block:"nearest"});break;
+    case"editprod":S.pform=clone(S.products.find(p=>p.id===id));S.pform.variants=S.pform.variants||[];S.pform.options=(S.pform.options||[]).map(o=>({name:o.name||"",values:(o.values||[]).join(", "),only:(o.only||[]).join(", ")}));renderPForm();$("#pform").scrollIntoView({block:"nearest"});break;
+    case"addvar":S.pform.variants.push({id:uid("v"),label:"",price:"",model:"",spec:""});renderPForm();document.querySelector(`[data-vf="${S.pform.variants.length-1}.label"]`)?.focus();break;
+    case"rmvar":S.pform.variants.splice(+b.dataset.i,1);renderPForm();break;
+    case"addopt":S.pform.options.push({name:"",values:"",only:""});renderPForm();document.querySelector(`[data-of="${S.pform.options.length-1}.name"]`)?.focus();break;
+    case"rmopt":S.pform.options.splice(+b.dataset.i,1);renderPForm();break;
     case"cancelprod":S.pform=null;renderPForm();break;
     case"rmphoto":S.pform.img="";renderPForm();break;
     case"saveprod":{const p=S.pform;if(!p.name.trim()){toast("Give the product a name");break}const pid=p.id||uid("p");
-      await put("products",pid,{name:p.name.trim(),spec:p.spec||"",warranty:(p.warranty||"").trim(),price:num(p.price),unit:p.unit||"Pcs",model:p.model||"",keywords:p.keywords||"",img:p.img||""});S.pform=null;renderPForm();toast("Product saved");break}
+      const list=x=>String(x||"").split(",").map(y=>y.trim()).filter(Boolean);
+      const variants=(p.variants||[]).filter(v=>String(v.label||"").trim()).map(v=>({id:v.id||uid("v"),label:String(v.label).trim(),price:num(v.price),model:String(v.model||"").trim(),spec:String(v.spec||"").trim()}));
+      const options=(p.options||[]).filter(o=>String(o.name||"").trim()&&list(o.values).length).map(o=>({name:String(o.name).trim(),values:list(o.values),only:list(o.only)}));
+      await put("products",pid,{name:p.name.trim(),spec:p.spec||"",warranty:(p.warranty||"").trim(),price:num(p.price),unit:p.unit||"Pcs",model:p.model||"",keywords:p.keywords||"",img:p.img||"",variants,options});S.pform=null;renderPForm();toast("Product saved");break}
     case"delprod":if(S.armed===S.pform?.id){await del("products",S.pform.id);S.pform=null;S.armed=null;renderPForm();toast("Product deleted")}else{S.armed=S.pform.id;renderPForm()}break;
     case"newcust":S.cform={id:"",name:"",attn:"",phone:"",address:"",ntn:""};S.armed=null;renderCForm();break;
     case"editcust":S.cform=clone(S.customers.find(c=>c.id===id));renderCForm();break;
@@ -1242,6 +1459,8 @@ document.addEventListener("input",e=>{
   if(t.id==="dq"){S.q=t.value;refreshList();return}
   if(t.id==="aiText"&&S.ed){S.ed.aiText=t.value;return}
   if(t.dataset.pf&&S.pform){S.pform[t.dataset.pf]=t.value;return}
+  if(t.dataset.vf&&S.pform){const[i,k]=t.dataset.vf.split(".");S.pform.variants[+i][k]=t.value;return}
+  if(t.dataset.of&&S.pform){const[i,k]=t.dataset.of.split(".");S.pform.options[+i][k]=t.value;return}
   if(t.dataset.cf&&S.cform){S.cform[t.dataset.cf]=t.value;return}
   if(t.dataset.sf){S.sDirty=true;return}
   if(t.dataset.f&&S.ed){S.ed.dirty=true;const f=t.dataset.f;setPath(S.ed.doc,f,t.type==="checkbox"?t.checked:t.value);
@@ -1253,6 +1472,9 @@ document.addEventListener("input",e=>{
 document.addEventListener("change",async e=>{
   const t=e.target;
   if(t.id==="custPick"&&S.ed){S.ed.dirty=true;const c=S.customers.find(x=>x.id===t.value);if(c){S.ed.doc.customer={id:c.id,name:c.name||"",attn:c.attn||"",phone:c.phone||"",address:c.address||"",ntn:c.ntn||""};vEditorKeep()}return}
+  if((t.dataset.act==="vsel"||t.dataset.act==="osel")&&S.ed){S.ed.dirty=true;const i=+t.dataset.i,it=S.ed.doc.items[i],p=S.products.find(x=>x.id===it.pid);if(!p)return;
+    if(t.dataset.act==="vsel")setLineVariant(it,p,t.value,null);else setLineVariant(it,p,it.vid,{[t.dataset.o]:t.value});
+    S.ed.lastItem=i;$("#items").innerHTML=itemsHTML(S.ed.doc);updatePreview();return}
   if(t.dataset.act==="pick"&&S.ed){S.ed.dirty=true;const i=+t.dataset.i,p=S.products.find(x=>x.id===t.value),it=S.ed.doc.items[i];
     S.ed.lastItem=i;if(p)S.ed.doc.items[i]=itemFromProduct(p,num(it.qty)||1,num(p.price));else it.pid="";$("#items").innerHTML=itemsHTML(S.ed.doc);updatePreview();return}
   if(t.type==="checkbox"&&t.dataset.f){setPath(S.ed.doc,t.dataset.f,t.checked);updatePreview();return}
@@ -1260,6 +1482,14 @@ document.addEventListener("change",async e=>{
   if(t.id==="pPhoto"&&t.files[0]&&S.pform){const m=$("#pPhotoMsg");m.textContent="Uploading…";
     try{const r=await prepUpload(t.files[0],1600,4e6);S.pform.img=await storeImage(r.blob);renderPForm()}catch{m.textContent="Upload failed. Try a JPG or PNG."}return}
   if(t.id==="logoFile"&&t.files[0]){uploadLogo(t.files[0]);return}
+  if(t.id==="importProducts"&&t.files[0]){const msg=$("#importMsg");msg.textContent="Importing…";
+    try{const j=JSON.parse(await t.files[0].text());const list=Array.isArray(j)?j:Array.isArray(j.products)?j.products:[];if(!list.length)throw new Error("No products found in that file.");
+      let n=0;for(const p of list){if(!p||!p.name)continue;const rec={...p};const id=String(rec.id||uid("p"));delete rec.id;
+        if(typeof rec.img==="string"&&rec.img.startsWith("data:")){try{rec.img=await storeImage(await (await fetch(rec.img)).blob())}catch{rec.img=""}}
+        const old=S.products.find(x=>x.id===id);if(old?.img&&!rec.img)rec.img=old.img;
+        await put("products",id,{spec:"",warranty:"",price:0,unit:"Pcs",model:"",keywords:"",img:"",variants:[],options:[],...rec});n++}
+      msg.textContent=`Imported ${n} product${n===1?"":"s"}.`;toast(`Imported ${n} product${n===1?"":"s"}`)}
+    catch(e){msg.textContent=e.message&&!/JSON/.test(e.message)?e.message:"That file isn't a product file."}t.value="";return}
 });
 
 /* ---------- boot ---------- */

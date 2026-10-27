@@ -57,63 +57,14 @@ R('<button class="btn sm" data-act="pdf" data-id="${d.id}">PDF</button>', '<butt
 R('if(/\\b(download|export)\\b.*\\bpdf\\b|^pdf$/.test(lc)){S.ed.after="pdf";return"Will save & download PDF"}',
   'if(/\\b(download|export|share|send|whatsapp)\\b.*\\bpdf\\b|^(pdf|share|whatsapp|share pdf|send)$/.test(lc)){S.ed.after="pdf";return"Will save & share PDF"}')
 R('“save” · “pdf” · “convert to invoice”', '“save” · “share” · “convert to invoice”')
-R('<b>New items</b> (uses AI):', '<b>New items</b> (built-in matching; AI only if set up):')
 R("Couldn't save. Check your connection and try again.", "Couldn't save on this phone. Try again.")
 
 # --- quick entry wording ---
-R('Edits are done instantly on your device; only new items use AI. Totals are always computed here.',
-  'Everything runs on this phone. New items are matched to your catalogue; AI is only used for lines it can\'t place, and only if you add a key in Settings. Totals are always computed here.')
+R("New items are matched to your catalogue on your device, sizes and options included; AI is only used for lines it can't place. Totals are always computed here.",
+  "Everything runs on this phone. New items are matched to your catalogue, sizes and options included; AI is only used for lines it can't place, and only if you add a key in Settings. Totals are always computed here.")
 
-# --- AI: local-first, provider from Settings ---
-RX(r'async function aiItems\(txt,d\)\{.*?\n\}\nasync function runAI\(\)\{.*?\n\}\n', r'''async function aiItems(clauses,d){
-  const done=[],asks=[];
-  const cat=S.products.map(p=>({id:p.id,name:p.name,specs:p.spec||"",model:p.model||"",keywords:p.keywords||"",price:num(p.price),unit:p.unit||"Pcs"}));
-  const cus=S.customers.map(c=>({id:c.id,name:c.name,attn:c.attn||""}));
-  const prompt=`You turn shorthand order notes from a lighting company in Multan, Pakistan into structured data. Do not do any arithmetic or totals.
-CATALOGUE (JSON): ${JSON.stringify(cat)}
-SAVED CUSTOMERS (JSON): ${JSON.stringify(cus)}
-ORDER TEXT: """${clauses.join(", ")}"""
-Rules:
-- Match each product mention to a catalogue id by series name, keyword, wattage, model or description. Use null productId only if nothing in the catalogue fits; then give a clean description.
-- A small number right before a product is the quantity. A larger number (usually 3+ digits) after a product is the unit rate in PKR. If no rate is written, rate is null. If no quantity is written, qty is null.
-- If the text names a person and/or business, match a saved customer (fuzzy) and return its customerId; otherwise newCustomer with a Title Case company name and attn like "Mr. Mashood". If no customer is mentioned, both are null.
-Reply with JSON only, exactly this shape:
-{"customerId": string|null, "newCustomer": {"name": string, "attn": string}|null, "items": [{"productId": string|null, "description": string, "qty": number|null, "rate": number|null}]}`;
-  try{
-    const r=await aiJson(prompt);
-    applyParsed({customer:r.customerId?{id:r.customerId}:r.newCustomer?.name?{name:r.newCustomer.name,attn:r.newCustomer.attn}:null,items:Array.isArray(r.items)?r.items:[]},d,done,asks);
-    if(!done.length&&!asks.length)asks.push("No items found in that text.");
-  }catch(e){
-    asks.push((e?.message||"AI request failed.")+" Used built-in matching instead.");
-    for(const cl of clauses)applyParsed(localParse(cl,d),d,done,asks);
-  }
-  return{done,asks};
-}
-async function runAI(){
-  const box=$("#aiText"),txt=box.value.trim();S.ed.aiText=txt;if(!txt)return;
-  const d=S.ed.doc,snap=clone(d);S.ed.after=null;
-  const done=[],asks=[],rest=[];let help=false;
-  for(const cl of splitClauses(txt)){let r;try{r=runCommand(cl,d)}catch{r=null}
-    if(r===null)rest.push(cl);else if(r?.help)help=true;else if(r?.ask)asks.push(`“${cl}”: ${r.ask}`);else if(r)done.push(r)}
-  const itemClauses=rest.filter(c=>looksLikeItems(c,d));
-  rest.filter(c=>!itemClauses.includes(c)).forEach(c=>asks.push(`Didn't understand “${c}”. Tap “What can I type?” for examples.`));
-  const forAI=[];
-  for(const cl of itemClauses){const r=localParse(cl,d);
-    if(!r.items.length){asks.push(`Didn't understand “${cl}”. Try “45 trail 4850”.`);continue}
-    if(r.ok||!aiReady())applyParsed(r,d,done,asks);else forAI.push(cl)}
-  if(forAI.length){const b=$("#aiBtn");if(b)b.disabled=true;const busy=$("#aiBusy");if(busy)busy.textContent="Asking AI about "+forAI.length+" line"+(forAI.length>1?"s":"")+"…";
-    const r=await aiItems(forAI,d);done.push(...r.done);asks.push(...r.asks)}
-  const changed=JSON.stringify(snap)!==JSON.stringify(d);
-  if(changed){S.ed.undo=snap;S.ed.dirty=true}
-  if(!asks.length&&!help)S.ed.aiText="";
-  S.ed.cmdLog={done,asks,help};
-  vEditor();
-  const after=S.ed.after;S.ed.after=null;
-  if(after==="save")await saveDoc();
-  if(after==="pdf"){if(!S.ed.id||S.ed.dirty){if(!(await saveDoc()))return}makePDF(S.ed.doc)}
-  if(after==="inv"||after==="dn"){if((!S.ed.id||S.ed.dirty)&&!(await saveDoc()))return;convert(S.ed.doc,after==="inv"?"INV":"DN")}
-}
-''')
+# --- AI: provider from Settings (local-first logic lives in the shared source) ---
+R('const AIX={ready:()=>!!SAMPLE,json:p=>SAMPLE.json(p,{modelTier:"default"})};', 'const AIX={ready:aiReady,json:aiJson};')
 
 # --- Settings: AI + backup cards ---
 R('''    <div class="card stack"><h2>Numbering ${y}</h2>''', '''    <div class="card stack" id="aiCard"><div class="spread"><h2 style="margin:0">AI for new items</h2><span class="pill ${aiReady()?"INV":"QT"}">${aiReady()?"On":"Off"}</span></div>
@@ -193,7 +144,7 @@ head = '''<!doctype html>
 </head>
 <body>
 '''
-R('<script>\n"use strict";', '<script src="platform.js"></script>\n<script src="localitems.js"></script>\n<script>\n"use strict";')
+R('<script>\n"use strict";', '<script src="platform.js"></script>\n<script>\n"use strict";')
 out = head + s + "\n</body>\n</html>\n"
 assert "claude.use" not in out and "window.claude" not in out, "claude runtime reference left"
 assert "googleapis" not in out and "jsdelivr" not in out and "cdnjs" not in out, "external URL left"
@@ -202,7 +153,7 @@ assert "googleapis" not in out and "jsdelivr" not in out and "cdnjs" not in out,
 if os.path.exists(WWW): shutil.rmtree(WWW)
 os.makedirs(os.path.join(WWW, "vendor")); os.makedirs(os.path.join(WWW, "fonts")); os.makedirs(os.path.join(WWW, "img"))
 open(os.path.join(WWW, "index.html"), "w", encoding="utf-8").write(out)
-for f in ["platform.js", "localitems.js"]:
+for f in ["platform.js"]:
     shutil.copy(os.path.join(ROOT, "src", f), os.path.join(WWW, f))
 shutil.copy(os.path.join(NM, "pdf-lib/dist/pdf-lib.min.js"), os.path.join(WWW, "vendor"))
 shutil.copy(os.path.join(NM, "@pdf-lib/fontkit/dist/fontkit.umd.min.js"), os.path.join(WWW, "vendor"))
