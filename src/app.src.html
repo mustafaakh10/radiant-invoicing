@@ -731,7 +731,7 @@ function setLineVariant(it,p,vid,opts){
 const lineLabel=it=>{const p=S.products.find(x=>x.id===it.pid),v=varOf(p,it.vid);return[it.name||"Item",v?.label,...Object.values(it.opts||{})].filter(Boolean).join(" · ")};
 const modelCodes=m=>{m=String(m||"").toLowerCase().trim();if(!m)return[];const out=[m],tail=m.split(/[-\s\/]/).filter(Boolean).at(-1);if(tail&&tail!==m&&tail.length>=3&&/\d/.test(tail)&&/[a-z]/.test(tail))out.push(tail);return out};
 const escRe=x=>String(x).replace(/[.*+?^${}()|[\]\\]/g,"\\$&");
-const normOrder=t=>String(t||"").toLowerCase().replace(/[’']/g,"").replace(/(\d)\s+(w|k|watt|watts)\b/g,"$1$2").replace(/(\d)\s*(?:deg|degree|degrees)\b/g,"$1°").replace(/\s+/g," ").trim();
+const normOrder=t=>String(t||"").toLowerCase().replace(/[’']/g,"").replace(/(^|[^\d.])0(\d)(?![\d.])/g,"$1$2").replace(/(\d)\s+(w|k|watt|watts)\b/g,"$1$2").replace(/(\d)watts?\b/g,"$1w").replace(/\b(dott?s?|heads)\b/g,m=>m.startsWith("d")?"dot":"head").replace(/(\d)\s*(?:deg|degree|degrees)\b/g,"$1°").replace(/\s+/g," ").trim();
 const wordAt=(hay,al)=>{const m=new RegExp(`(^|[^a-z0-9°])${escRe(al)}(?=$|[^a-z0-9°])`).exec(hay);return m?{at:m.index+m[1].length,len:al.length}:null};
 function variantAliases(v){const a=new Set(),L=String(v.label||"").toLowerCase().trim();
   if(L){a.add(L);a.add(L.replace(/\s+/g,""))}for(const c of modelCodes(v.model))a.add(c);
@@ -995,11 +995,15 @@ function splitClauses(txt){
     if(/^(notes?|add\s+notes?|append\s+notes?|address|addr|add\s+(a\s+)?(term|condition|t&c)|remove\s+(the\s+)?(term|condition)|specs?\b|description|details?\b|customer|client|bill to|deliver to)\b/i.test(l))return[l];
     return l.split(/\s*,(?!\d)\s*|\s+\b(?:and|also|then|&)\b\s+/i).map(x=>x.trim()).filter(Boolean)});
 }
+/* a line like "laser blade" or "COB" on its own: a heading for the lines below it */
+const plainW=t=>normOrder(t).replace(/[^a-z0-9 ]/g," ").split(" ").filter(Boolean).map(w=>w.replace(/s$/,"")).join(" ");
+function isHeading(c){if(/\d/.test(c))return false;const w=plainW(c);if(!w)return false;
+  return S.products.some(p=>[p.category,p.series].some(x=>x&&plainW(x)===w))||findMentions(normOrder(c)).length>0}
 /* does a leftover clause look like a new order line for the AI? */
 const looksLikeItems=(c,d)=>/\d/.test(c)&&(S.products.some(p=>`${p.name} ${p.keywords||""} ${p.model||""} ${(p.variants||[]).map(v=>v.model||"").join(" ")}`.toLowerCase().split(/[^a-z0-9]+/).filter(w=>w.length>2&&!STOP.has(w)).some(w=>c.toLowerCase().includes(w)))||!d.items.length||/\b\d+\s*w\b/i.test(c));
 
 /* ---------- built-in order reader (no AI): catalogue words + sizes + options + quantities + rates ---------- */
-const GENERIC=new Set("led light lights series downlight downlights black white warm cool neutral natural lamp model the and with for pcs pc set spot strip strips roll rope red green blue pink orange yellow purple gold silver grey gray brown".split(" "));
+const GENERIC=new Set("led light lights series downlight downlights black white warm cool neutral natural lamp model the and with for pcs pc set spot strip strips roll rope red green blue pink orange yellow purple gold silver grey gray brown square linear round".split(" "));
 function catIndex(){
   const tok=s=>String(s||"").toLowerCase().match(/[a-z][a-z0-9\-]{2,}/g)||[];
   const phrases=[],count=new Map();
@@ -1092,8 +1096,9 @@ function applyParsed(res,d,done,asks){
     const opts={};for(const o of optsFor(p,v)){const val=it.options?.[o.name];if(val&&o.values.includes(val))opts[o.name]=val}
     const label=[p.name,v?.label,...Object.values(opts)].filter(Boolean).join(" · ");
     const ex=d.items.findIndex(x=>x.pid===p.id&&(x.vid||"")===(v?.id||"")&&sameOpts(x.opts,opts));
+    if(ex>=0&&S.ed.runRows?.has(d.items[ex])&&q!=null){const row=d.items[ex],was=num(row.qty);row.qty=was+q;row.qtyDel=row.qty;if(rate!=null)row.rate=rate;S.ed.lastItem=ex;done.push(`${label} appears twice: ${fmt(was)} + ${fmt(q)} = ${fmt(row.qty)}`);continue}
     if(ex>=0){const row=d.items[ex];if(q!=null){row.qty=q;row.qtyDel=q}if(rate!=null)row.rate=rate;S.ed.lastItem=ex;done.push(`Updated ${label}: ${fmt(row.qty)} × ${fmt(row.rate)}`);continue}
-    const row=itemFromProduct(p,q??1,rate??null,v?.id,opts);d.items.push(row);S.ed.lastItem=d.items.length-1;
+    const row=itemFromProduct(p,q??1,rate??null,v?.id,opts);d.items.push(row);S.ed.lastItem=d.items.length-1;S.ed.runRows?.add(row);
     done.push(`Added ${fmt(row.qty)} × ${label} @ ${fmt(row.rate)}${q==null?" (qty not given, set to 1)":""}`);
     const miss=optsFor(p,v).filter(o=>!opts[o.name]).map(o=>o.name);
     if(miss.length)asks.push(`${label}: ${miss.join(" and ")} not chosen. Pick below, or type e.g. “${shortKey(p)} ${v?.label||""} ${optsFor(p,v).filter(o=>!opts[o.name]).map(o=>o.values[0]).join(" ")}”.`.replace(/\s+”/,"”").replace(/ {2,}/g," "));
@@ -1139,8 +1144,11 @@ async function runAI(){
   const done=[],asks=[],rest=[];let help=false;
   for(const cl of splitClauses(txt)){let r;try{r=runCommand(cl,d)}catch(e){console.error(e);r=null}
     if(r===null)rest.push(cl);else if(r?.help)help=true;else if(r?.ask)asks.push(`“${cl}”: ${r.ask}`);else if(r)done.push(r)}
-  const itemClauses=rest.filter(c=>looksLikeItems(c,d));
-  rest.filter(c=>!itemClauses.includes(c)).forEach(c=>asks.push(`Didn't understand “${c}”. Tap “What can I type?” for examples.`));
+  const itemClauses=[];let ctx="";S.ed.runRows=new Set();
+  for(const c of rest){
+    if(isHeading(c)){ctx=c;continue}
+    const c2=ctx&&!findMentions(normOrder(c)).length?`${ctx} ${c}`:c;
+    if(looksLikeItems(c2,d))itemClauses.push(c2);else asks.push(`Didn't understand “${c}”. Tap “What can I type?” for examples.`)}
   const forAI=[];
   for(const cl of itemClauses){const r=localParse(cl,d);
     if(!r.items.length){asks.push(`Didn't understand “${cl}”. Try “45 trail 4850”.`);continue}
