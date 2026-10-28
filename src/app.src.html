@@ -1144,13 +1144,13 @@ async function runAI(){
   const done=[],asks=[],rest=[];let help=false;
   for(const cl of splitClauses(txt)){let r;try{r=runCommand(cl,d)}catch(e){console.error(e);r=null}
     if(r===null)rest.push(cl);else if(r?.help)help=true;else if(r?.ask)asks.push(`“${cl}”: ${r.ask}`);else if(r)done.push(r)}
-  const itemClauses=[];let ctx="";S.ed.runRows=new Set();
+  const itemClauses=[],ctxd=new Set();let ctx="";S.ed.runRows=new Set();
   for(const c of rest){
     if(isHeading(c)){ctx=c;continue}
-    const c2=ctx&&!findMentions(normOrder(c)).length?`${ctx} ${c}`:c;
+    const c2=ctx?`${ctx} ${c}`:c;if(ctx)ctxd.add(c2);
     if(looksLikeItems(c2,d))itemClauses.push(c2);else asks.push(`Didn't understand “${c}”. Tap “What can I type?” for examples.`)}
   const forAI=[];
-  for(const cl of itemClauses){const r=localParse(cl,d);
+  for(const cl of itemClauses){const r=localParse(cl,d);if(ctxd.has(cl))r.customer=null;
     if(!r.items.length){asks.push(`Didn't understand “${cl}”. Try “45 trail 4850”.`);continue}
     if(r.ok||!AIX.ready())applyParsed(r,d,done,asks);else forAI.push(cl)}
   if(forAI.length){const b=$("#aiBtn");if(b)b.disabled=true;const busy=$("#aiBusy");if(busy)busy.textContent="Asking AI about "+forAI.length+" line"+(forAI.length>1?"s":"")+"…";
