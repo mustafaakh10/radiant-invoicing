@@ -109,7 +109,7 @@ function handleBack(){
   try{await LocalStore.load();await seedIfEmpty()}catch(e){$("#banner").hidden=false;$("#banner").textContent="This phone's storage couldn't be opened. Restart the app.";return}
   registerBlobs();DB=LocalStore;
   DB.doc("settings/main").onSnapshot(s=>{S.settings={...DEFAULTS,...(s.data()||{})};S.ready.settings=true;afterData("settings")});
-  for(const col of["products","customers"])DB.collection(col).onSnapshot(q=>{S[col]=q.docs.map(d=>({id:d.id,...d.data()})).sort((a,b)=>String(a.name).localeCompare(String(b.name)));S.ready[col]=true;afterData(col)});
+  for(const col of["products","customers","suppliers"])DB.collection(col).onSnapshot(q=>{S[col]=q.docs.map(d=>({id:d.id,...d.data()})).sort((a,b)=>String(a.name).localeCompare(String(b.name)));S.ready[col]=true;afterData(col)});
   DB.collection("docs").orderBy("createdAt","desc").onSnapshot(q=>{S.docs=q.docs.map(d=>({id:d.id,...d.data()}));S.ready.docs=true;afterData("docs")});
   setupNative(handleBack);
 })();
