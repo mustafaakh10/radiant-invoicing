@@ -294,7 +294,8 @@ button.step{cursor:pointer}
 .p-tb .l{width:340px}
 .p-tb .r{width:306px}
 .p-tx{font-size:9px;color:#4b5563;line-height:1.6;margin-top:6.6px;white-space:pre-line}
-.p-sig{align-self:flex-end;width:160px;margin-top:72px;text-align:center}
+.p-sig{align-self:flex-end;width:160px;margin-top:72px;text-align:center;position:relative}
+.p-sigimg{position:absolute;left:10px;right:10px;bottom:100%;margin-bottom:2px;height:46px;width:140px;object-fit:contain}
 .p-sig .ln,.p-sg2 .ln{height:1px;background:#2b3a2f}
 .p-sig .n,.p-sg2 .n{font-size:9px;font-weight:700;margin-top:5px;color:#1f2933}
 .p-sig .t,.p-sg2 .t{font-size:8px;color:#6b7280;margin-top:2.8px}
@@ -350,7 +351,7 @@ const DEFAULTS={
   phone:"+92 340 4705718",email:"info@radiantlighting.pk",website:"www.radiantlighting.pk",
   ntn:"",strn:"",
   bankTitle:"Radiant Lighting",bankName:"",bankAcc:"",iban:"",
-  signName:"",signTitle:"Authorised Signatory",
+  signName:"",signTitle:"Authorised Signatory",signImg:"",signOn:true,
   gstRate:18,defaultTax:"excl",quoteValidDays:7,
   termsQT:"Prices ex-Multan.\nPayment: 100% advance.\nDelivery within 1-2 days of payment.\nWarranty as stated against each item.",
   termsINV:"Prices ex-Multan.\nPayment: 100% advance.\nDelivery within 1-2 days of payment.\nWarranty as stated against each item.",
@@ -444,7 +445,7 @@ function docHTML(d){
     <div class="p-hr"></div>
     <div class="p-tb"><div class="l"><div class="p-lbl">TERMS &amp; CONDITIONS</div><div class="p-tx">${esc(numbered(docTerms(d,d.terms)))}</div></div>
     <div class="r">${d.type==="PO"?`<div class="p-lbl">DELIVER TO</div><div class="p-tx">${esc(poDeliverTo())}</div>`:bank?`<div class="p-lbl">BANK DETAILS</div><div class="p-tx">${esc(bank)}</div>`:""}</div></div>
-    <div class="p-sig"><div class="ln"></div><div class="n">${esc(s.signName||" ")}</div><div class="t">${esc(s.signTitle||"Authorised Signatory")}</div></div>`;
+    <div class="p-sig">${sigOn(d)?`<img class="p-sigimg" src="${esc(s.signImg)}" alt="">`:""}<div class="ln"></div><div class="n">${esc(s.signName||" ")}</div><div class="t">${esc(s.signTitle||"Authorised Signatory")}</div></div>`;
   }
   const word={QT:"quotation",INV:"invoice",DN:"delivery note",PO:"purchase order"}[d.type];
   const foot=`This is a computer-generated ${word}.  For queries: ${[s.phone,s.email].filter(Boolean).join("  ·  ")}${dn?"":d.type==="PO"?"  ·  Thank you.":"  ·  Thank you for your business."}`;
@@ -487,6 +488,26 @@ async function prepUpload(file,maxDim,maxBytes){
     x.imageSmoothingQuality="high";x.drawImage(img,0,0,c.width,c.height);
     const blob=await new Promise(r=>c.toBlob(r,jpg?"image/jpeg":"image/png",.95));return{blob,w:c.width,h:c.height};
   }finally{URL.revokeObjectURL(url)}
+}
+/* signature: keep only the ink. Light pixels (paper, or a checkerboard baked into a "transparent" export) become transparent */
+const sigOn=d=>!!S.settings.signImg&&S.settings.signOn!==false&&d.type!=="DN";
+async function cleanSignature(file){
+  const url=URL.createObjectURL(file);
+  try{const img=await loadImg(url);const sc=Math.min(1,900/img.naturalWidth);const c=document.createElement("canvas");
+    c.width=Math.max(1,Math.round(img.naturalWidth*sc));c.height=Math.max(1,Math.round(img.naturalHeight*sc));
+    const x=c.getContext("2d");x.imageSmoothingQuality="high";x.drawImage(img,0,0,c.width,c.height);
+    const px=x.getImageData(0,0,c.width,c.height),a=px.data;let x0=c.width,y0=c.height,x1=-1,y1=-1;
+    for(let i=0;i<a.length;i+=4){const L=0.299*a[i]+0.587*a[i+1]+0.114*a[i+2],ink=L>=100?0:L<=50?1:(100-L)/50,al=Math.round(ink*a[i+3]);
+      a[i]=20;a[i+1]=20;a[i+2]=24;a[i+3]=al;if(al>24){const p=i/4,px_=p%c.width,py=(p/c.width)|0;if(px_<x0)x0=px_;if(px_>x1)x1=px_;if(py<y0)y0=py;if(py>y1)y1=py}}
+    if(x1<0)throw new Error("No ink found");
+    x.putImageData(px,0,0);const pad=6,w=Math.min(c.width,x1-x0+1+2*pad),h=Math.min(c.height,y1-y0+1+2*pad);
+    const o=document.createElement("canvas");o.width=w;o.height=h;o.getContext("2d").drawImage(c,Math.max(0,x0-pad),Math.max(0,y0-pad),w,h,0,0,w,h);
+    return await new Promise(r=>o.toBlob(r,"image/png"));
+  }finally{URL.revokeObjectURL(url)}
+}
+async function uploadSignature(file){
+  try{toast("Cleaning signature…");const b=await cleanSignature(file);const url=await storeImage(b);const o={...S.settings,signImg:url};delete o.id;await saveSettings(o);S.settings={...DEFAULTS,...o};vSettings();toast("Signature added")}
+  catch(e){toast("Couldn't read that signature image")}
 }
 async function storeImage(blob){
   if(ASSETS){const r=await ASSETS.upload(blob);return r.url}
@@ -1403,6 +1424,7 @@ async function buildPDF(d,env={}){
   /* ---- closing section (measured first, moved to a new page if it won't fit) ---- */
   const bank=[s.bankTitle&&("Account Title: "+s.bankTitle),s.bankName&&("Bank: "+s.bankName),s.bankAcc&&("Account No: "+s.bankAcc),s.iban&&("IBAN: "+s.iban)].filter(Boolean).join("\n");
   const blank="______________________",dp=d.dispatch||{};
+  let sigAt=null;
   function closing(y0,draw){
     const o=x=>({...x,draw});
     if(dn){
@@ -1440,7 +1462,7 @@ async function buildPDF(d,env={}){
     const a=tx(numbered(docTerms(d,d.terms)),48,ty+16,o({size:9,color:G2,lh:1.6,w:340}));
     let b=0;if(d.type==="PO"){tx("DELIVER TO",440,ty,o({size:8,style:"bold",color:G}));b=tx(poDeliverTo(),440,ty+16,o({size:9,color:G2,lh:1.6,w:306}))}
     else if(bank){tx("BANK DETAILS",440,ty,o({size:8,style:"bold",color:G}));b=tx(bank,440,ty+16,o({size:9,color:G2,lh:1.6,w:306}))}
-    const sy=ty+16+Math.max(a,b)+76;
+    const sy=ty+16+Math.max(a,b)+76;sigAt=sy;
     if(draw)rect(586,sy,160,1,DK);
     if(s.signName)tx(s.signName,666,sy+6,o({size:9,style:"bold",align:"center"}));
     tx(s.signTitle||"Authorised Signatory",666,sy+19,o({size:8,color:GR,align:"center"}));
@@ -1449,6 +1471,7 @@ async function buildPDF(d,env={}){
   let y0=y+(dn?16:14);
   if(y0+closing(y0,false)>LIMIT)y0=newPage()+8;
   closing(y0,true);
+  if(sigOn(d)&&sigAt!=null)await image(s.signImg,596,sigAt-50,140,46);
 
   const pages=doc.getPages();
   if(pages.length>1)pages.forEach((p,i)=>{pg=p;tx(`Page ${i+1} of ${pages.length}`,746,1090,{size:8,color:GR,align:"right"})});
@@ -1590,6 +1613,11 @@ async function vSettings(){
         <span class="logo-cta"><b>Drop your logo here</b> or tap to choose a PNG or JPG</span><input type="file" accept="image/png,image/jpeg" id="logoFile" hidden></label>
       <div id="logoInfo" class="logo-info">Checking resolution…</div>
       <ul class="tips"><li>PNG with a white or transparent background works best.</li><li>The header slot is 2.2 : 1 (wide). Square logos still fit, just smaller.</li><li>About 500 px wide or more prints sharp at 300 dpi. The file is used as-is, never re-compressed.</li></ul></div>
+    <div class="card stack"><div class="spread"><h2 style="margin:0">Signature</h2>${s.signImg?`<button class="btn sm ghost danger ${S.armed==="delsign"?"armed":""}" data-act="resetsign">${S.armed==="delsign"?"Confirm remove":"Remove"}</button>`:""}</div>
+      <label class="logo-drop" for="signFile"><span class="logo-paper" style="min-height:70px">${s.signImg?`<img src="${esc(s.signImg)}" alt="Your signature" style="max-height:70px">`:`<span class="muted" style="font-size:13px">No signature yet</span>`}</span>
+        <span class="logo-cta"><b>${s.signImg?"Replace signature":"Add your signature"}</b>: a photo or PNG of it on white paper</span><input type="file" accept="image/png,image/jpeg" id="signFile" hidden></label>
+      <label class="slashtog"><input type="checkbox" id="signOn" ${s.signOn!==false?"checked":""}><span><b>Sign quotations, invoices and purchase orders</b><br><span class="muted">Printed above the signatory line. Delivery notes stay unsigned for the driver and customer.</span></span></label>
+      <div class="muted" style="font-size:12px">The background is removed automatically, even a grey checkerboard from a background-remover.</div></div>
     <div class="card stack"><h2>Cost prices</h2>
       <label class="slashtog"><input type="checkbox" id="showCosts" ${s.showCosts!==false?"checked":""}><span><b>Show costs and margin</b><br><span class="muted">Turn off on a phone a salesperson uses. Costs never print on documents either way.</span></span></label></div>
     <div class="card stack"><h2>Import products</h2>
@@ -1686,6 +1714,7 @@ document.addEventListener("click",async e=>{
     case"delcust":if(S.armed===S.cform?.id){await del("customers",S.cform.id);S.cform=null;S.armed=null;renderCForm();toast("Customer deleted")}else{S.armed=S.cform.id;renderCForm()}break;
     case"savesettings":{const o={...S.settings};document.querySelectorAll("[data-sf]").forEach(i=>o[i.dataset.sf]=i.value);o.gstRate=num(o.gstRate);o.quoteValidDays=num(o.quoteValidDays)||7;delete o.id;
       try{await saveSettings(o);S.settings={...DEFAULTS,...o};S.sDirty=false;toast("Settings saved")}catch{toast("Couldn't save settings")}break}
+    case"resetsign":{if(S.armed!=="delsign"){S.armed="delsign";vSettings();break}S.armed=null;const o={...S.settings,signImg:""};delete o.id;await saveSettings(o);S.settings={...DEFAULTS,...o};vSettings();toast("Signature removed");break}
     case"resetlogo":{const o={...S.settings,logo:""};await saveSettings(o);S.settings=o;vSettings();break}
     case"savecounters":{const y=todayISO().slice(0,4);for(const t of["QT","INV","DN","PO"]){const v=parseInt($("#cnt-"+t).value,10);if(Number.isFinite(v)&&v>=0)await counterSet(`${t}-${y}`,v)}toast("Numbering updated");break}
   }
@@ -1722,6 +1751,8 @@ document.addEventListener("change",async e=>{
   if(t.id==="pPhoto"&&t.files[0]&&S.pform){const m=$("#pPhotoMsg");m.textContent="Uploading…";
     try{const r=await prepUpload(t.files[0],1600,4e6);S.pform.img=await storeImage(r.blob);renderPForm()}catch{m.textContent="Upload failed. Try a JPG or PNG."}return}
   if(t.id==="logoFile"&&t.files[0]){uploadLogo(t.files[0]);return}
+  if(t.id==="signFile"&&t.files[0]){uploadSignature(t.files[0]);return}
+  if(t.id==="signOn"){const o={...S.settings,signOn:t.checked};delete o.id;await saveSettings(o);S.settings={...DEFAULTS,...o};toast(t.checked?"Documents will be signed":"Signature off");return}
   if(t.id==="showCosts"){const o={...S.settings,showCosts:t.checked};delete o.id;await saveSettings(o);S.settings={...DEFAULTS,...o};toast(t.checked?"Costs shown":"Costs hidden");return}
   if(t.id==="importProducts"&&t.files[0]){const msg=$("#importMsg");msg.textContent="Importing…";
     try{const j=JSON.parse(await t.files[0].text());const list=Array.isArray(j)?j:Array.isArray(j.products)?j.products:[];if(!list.length)throw new Error("No products found in that file.");
