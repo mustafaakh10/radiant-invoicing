@@ -448,7 +448,7 @@ function docHTML(d){
     <div class="p-sig">${sigOn(d)?`<img class="p-sigimg" src="${esc(s.signImg)}" alt="">`:""}<div class="ln"></div><div class="n">${esc(s.signName||" ")}</div><div class="t">${esc(s.signTitle||"Authorised Signatory")}</div></div>`;
   }
   const word={QT:"quotation",INV:"invoice",DN:"delivery note",PO:"purchase order"}[d.type];
-  const foot=`This is a computer-generated ${word}.  For queries: ${[s.phone,s.email].filter(Boolean).join("  ·  ")}${dn?"":d.type==="PO"?"  ·  Thank you.":"  ·  Thank you for your business."}`;
+  const foot=`This is a computer-generated ${word}.  For queries: ${[s.phone,s.email].filter(Boolean).join("  ·  ")}`;
   return `<div class="paper"><div class="bt"></div>
   <div class="p-hdr"><img class="logo" src="${esc(s.logo||LOGO)}" alt="">
     <div class="co"><div class="n">${esc((s.company||"").toUpperCase())}</div>${s.tagline?`<div class="t">${esc(s.tagline)}</div>`:""}<div class="a">${esc(addr)}</div></div>
@@ -1335,7 +1335,7 @@ async function buildPDF(d,env={}){
   const word={QT:"quotation",INV:"invoice",DN:"delivery note",PO:"purchase order"}[d.type];
   const title={QT:"QUOTATION",INV:"INVOICE",DN:"DELIVERY NOTE",PO:"PURCHASE ORDER"}[d.type];
   const no=d.number||`RL-${d.type}-${(d.date||todayISO()).slice(0,4)}-DRAFT`;
-  const foot=`This is a computer-generated ${word}.  For queries: ${[s.phone,s.email].filter(Boolean).join("  ·  ")}${dn?"":d.type==="PO"?"  ·  Thank you.":"  ·  Thank you for your business."}`;
+  const foot=`This is a computer-generated ${word}.  For queries: ${[s.phone,s.email].filter(Boolean).join("  ·  ")}`;
   const LIMIT=1050;
   const addPage=()=>{pg=doc.addPage([595.28,PH]);rect(0,0,794,8,G);rect(0,1113,794,10,G);rect(48,1066,698,1,LN);tx(foot,397,1076,{size:8,color:GR,align:"center"})};
 
