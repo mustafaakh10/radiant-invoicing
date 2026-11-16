@@ -3,3 +3,8 @@ www/
 seed/
 .DS_Store
 *.log
+web/db.sqlite3
+web/media/
+web/staticfiles/
+__pycache__/
+*.pyc

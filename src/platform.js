@@ -82,14 +82,15 @@ async function httpPost(url,headers,body){
   let data;try{data=await r.json()}catch{data={}}return{status:r.status,data};
 }
 class AIError extends Error{constructor(code,msg){super(msg);this.code=code}}
-async function aiText(prompt){
+async function aiText(prompt,opts={}){
+  const maxT=Math.min(4000,opts.maxTokens||600);
   const c=aiConf();if(!aiReady())throw new AIError("not_configured","No AI key set");
   let r,text="";
   if(c.provider==="anthropic"){
-    r=await httpPost(c.base+"/messages",{"x-api-key":c.key,"anthropic-version":"2023-06-01","anthropic-dangerous-direct-browser-access":"true"},{model:c.model,max_tokens:1500,temperature:0,messages:[{role:"user",content:prompt}]});
+    r=await httpPost(c.base+"/messages",{"x-api-key":c.key,"anthropic-version":"2023-06-01","anthropic-dangerous-direct-browser-access":"true"},{model:c.model,max_tokens:maxT,temperature:0,messages:[{role:"user",content:prompt}]});
     if(r.status===200)text=(r.data.content||[]).map(b=>b.text||"").join("");
   }else{
-    r=await httpPost(c.base+"/chat/completions",{"Authorization":"Bearer "+c.key},{model:c.model,temperature:0,messages:[{role:"user",content:prompt}]});
+    r=await httpPost(c.base+"/chat/completions",{"Authorization":"Bearer "+c.key},{model:c.model,max_tokens:maxT,temperature:0,messages:[{role:"user",content:prompt}]});
     if(r.status===200)text=r.data?.choices?.[0]?.message?.content||"";
   }
   if(r.status===401||r.status===403)throw new AIError("bad_key","The AI key was rejected. Check it in Settings.");
@@ -98,8 +99,8 @@ async function aiText(prompt){
   if(r.status!==200)throw new AIError("failed","AI request failed ("+r.status+").");
   return text;
 }
-async function aiJson(prompt){
-  const t=await aiText(prompt);const m=t.match(/\{[\s\S]*\}/);
+async function aiJson(prompt,opts){
+  const t=await aiText(prompt,opts);const m=t.match(/\{[\s\S]*\}/);
   if(!m)throw new AIError("invalid_json","The AI reply had no data.");
   try{return JSON.parse(m[0])}catch{throw new AIError("invalid_json","The AI reply couldn't be read.")}
 }
@@ -133,4 +134,34 @@ async function setupNative(onBack){
   if(!NATIVE)return;
   try{const SB=Plug("StatusBar");if(SB){await SB.setStyle({style:"DARK"});await SB.setBackgroundColor({color:"#2b3a2f"})}}catch{}
   try{const A=Plug("App");if(A)A.addListener("backButton",()=>{if(!onBack())A.exitApp()})}catch{}
+}
+
+/* ---------- extra Settings sections for the phone app ---------- */
+const restoreBoxHTML=(j,where)=>{const n=k=>Object.keys(j.records).filter(x=>x.startsWith(k+"/")).length;
+  return`<div class="banner" style="margin:0">Backup from ${esc(fdate(String(j.exportedAt).slice(0,10)))}: ${n("docs")} documents, ${n("products")} products, ${n("customers")} customers.<div class="row" style="margin-top:8px"><button class="btn danger armed" data-act="restoreok">Replace all data ${where}</button><button class="btn ghost" data-act="restorecancel">Cancel</button></div></div>`};
+const SETTINGS_EXTRA=[
+  {id:"ai",label:"AI assistant",sub:"Optional help for lines the built-in matching can't place.",html:()=>{const s=S.settings,p=AI_PRESETS[s.aiProvider||"none"]||{};
+    return sCard(`AI provider <span class="pill ${aiReady()?"INV":"QT"}" style="margin-left:6px">${aiReady()?"On":"Off"}</span>`,`
+      <label class="f">Provider<select data-sf="aiProvider" id="aiProvider">${Object.entries(AI_PRESETS).map(([k,x])=>`<option value="${k}" ${(s.aiProvider||"none")===k?"selected":""}>${esc(x.label)}</option>`).join("")}</select></label>
+      <div id="aiFields" class="stack" style="gap:12px" ${(s.aiProvider||"none")==="none"?"hidden":""}>
+        <label class="f">API key <span class="muted fh" id="aiKeyHint">${p.keys?"get one at "+esc(p.keys):""}</span><input data-sf="aiKey" id="aiKey" type="password" autocomplete="off" value="${esc(s.aiKey)}" placeholder="Paste your key"></label>
+        <div class="g2"><label class="f">Model<input data-sf="aiModel" id="aiModel" value="${esc(s.aiModel)}" placeholder="${esc(p.model||"model name")}"></label>
+        <label class="f">API address<input data-sf="aiBase" id="aiBase" value="${esc(s.aiBase)}" placeholder="${esc(p.base||"https://…/v1")}"></label></div>
+        <div class="row"><button class="btn" data-act="aitest">Save &amp; test</button><span id="aiTestMsg" class="muted" style="font-size:13px"></span></div></div>`,
+      "Built-in matching handles your catalogue on its own. With a key, only lines it can't place are sent, with just the few matching products, so calls stay small. The key stays on this phone.")}},
+  {id:"backup",label:"Backup & restore",sub:"Your records live only on this phone.",html:()=>sCard("Backup",`<div class="row"><button class="btn" data-act="backup">Share backup file</button><label class="btn">Restore from file<input type="file" accept="application/json,.json" id="restoreFile" hidden></label></div><div id="restoreBox"></div>`,
+      "Share a backup file to Drive or WhatsApp regularly. Restoring replaces everything on this phone.")}
+];
+const PLATFORM_ACTS={
+  async aitest(){await saveSettingsForm();const m=$("#aiTestMsg");if(!aiReady()){m.textContent="Add a key first.";return}
+    m.textContent="Testing…";try{const t=await aiText("Reply with just the word OK.",{maxTokens:5});m.textContent=/ok/i.test(t)?"Working ✓":"Connected, unexpected reply: "+t.slice(0,40)}catch(e){m.textContent=e.message||"Test failed."}},
+  async backup(){try{const r=await exportBackup();if(r==="downloaded")toast("Backup downloaded")}catch{toast("Couldn't create the backup.")}},
+  async restoreok(){try{await restoreBackup(S.pendingRestore);toast("Restored. Reloading…");setTimeout(()=>location.reload(),600)}catch{toast("Restore failed. Nothing was changed.")}},
+  async restorecancel(){S.pendingRestore=null;$("#restoreBox").innerHTML=""}
+};
+async function PLATFORM_CHANGE(t){
+  if(t.id==="aiProvider"){const p=AI_PRESETS[t.value]||{};$("#aiFields").hidden=t.value==="none";$("#aiModel").placeholder=p.model||"model name";$("#aiBase").placeholder=p.base||"https://…/v1";$("#aiKeyHint").textContent=p.keys?"get one at "+p.keys:"";return true}
+  if(t.id==="restoreFile"&&t.files[0]){const box=$("#restoreBox");try{const j=await readBackup(t.files[0]);S.pendingRestore=j;box.innerHTML=restoreBoxHTML(j,"on this phone")}
+    catch(e){box.innerHTML=`<div class="banner" style="margin:0">${esc(e.message||"Couldn't read that file.")}</div>`}t.value="";return true}
+  return false;
 }

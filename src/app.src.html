@@ -53,6 +53,7 @@ h2{font-size:15px;margin:0 0 10px;font-weight:700}
 .btn:disabled{opacity:.5;cursor:default}
 .card{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:16px}
 label.f{display:flex;flex-direction:column;gap:4px;font-size:12px;font-weight:600;color:var(--muted);min-width:0}
+label.f:has(>.fh){display:block}label.f:has(>.fh)>:is(input,select,textarea){display:block;width:100%;margin-top:4px;box-sizing:border-box}label.f>.fh{margin-left:2px;font-weight:400}
 input,select,textarea{background:var(--surface);border:1px solid var(--line);border-radius:7px;padding:8px 10px;width:100%;min-width:0;font-size:14px;color:var(--ink)}
 textarea{resize:vertical;min-height:70px;line-height:1.45}
 input:focus,select:focus,textarea:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px color-mix(in srgb,var(--accent) 20%,transparent)}
@@ -157,6 +158,71 @@ select.need{border-color:#d9a13b;background:color-mix(in srgb,#d9a13b 8%,var(--s
 .cmargin{font-size:11.5px;font-weight:600;color:var(--accent-ink)}
 .vrow{grid-template-columns:minmax(0,.9fr) minmax(0,1fr) minmax(0,1fr) minmax(0,1.2fr) auto!important}
 @media (max-width:520px){.vrow{grid-template-columns:minmax(0,1fr) minmax(0,1fr) minmax(0,1fr) auto!important}.vrow input[data-vf$=".model"]{grid-column:1/3;grid-row:2}.vrow .vspec{grid-column:3/-1!important;grid-row:2}}
+/* settings */
+.setlayout{display:grid;grid-template-columns:220px minmax(0,1fr);gap:24px;align-items:start}
+.setnav{position:sticky;top:76px;display:flex;flex-direction:column;gap:2px}
+.setnav button{all:unset;cursor:pointer;padding:9px 12px;border-radius:8px;font-weight:600;font-size:14px;color:var(--muted)}
+.setnav button:hover{background:var(--sunk);color:var(--ink)}
+.setnav button[aria-current]{background:var(--surface);color:var(--ink);box-shadow:inset 3px 0 0 var(--accent);border:1px solid var(--line)}
+.setnav button:focus-visible{outline:2px solid var(--focus)}
+.setmain{display:flex;flex-direction:column;gap:16px;max-width:760px;padding-bottom:90px}
+.setsub{margin:-8px 0 0;font-size:14px}
+.scard h3{margin:0;font-size:15px}.ssub{margin:4px 0 0;font-size:13px}
+.g2 .full{grid-column:1/-1}
+.fh{font-weight:400;font-size:12px}
+.savebar{position:fixed;left:50%;transform:translateX(-50%);bottom:20px;z-index:20;display:flex;align-items:center;gap:16px;background:var(--deep);color:var(--on-deep);padding:10px 12px 10px 18px;border-radius:12px;box-shadow:0 12px 30px rgba(0,0,0,.22);font-weight:600;font-size:14px;width:max-content;max-width:calc(100% - 32px)}
+.savebar .btn.ghost{color:var(--on-deep)}
+@media (max-width:760px){
+  .setlayout{grid-template-columns:minmax(0,1fr);gap:12px}
+  .setnav{position:sticky;top:0;z-index:5;flex-direction:row;overflow-x:auto;gap:6px;padding:8px 0;margin:0 -16px;padding-left:16px;padding-right:16px;background:var(--bg);scrollbar-width:none}
+  .setnav button{white-space:nowrap;border:1px solid var(--line);background:var(--surface);padding:7px 12px;font-size:13px}
+  .setnav button[aria-current]{box-shadow:none;background:var(--deep);color:var(--on-deep);border-color:var(--deep)}
+  .savebar{bottom:calc(84px + env(safe-area-inset-bottom,0px));left:16px;right:16px;transform:none;width:auto;justify-content:space-between}
+}
+/* product editor sheet */
+body.sheet-open{overflow:hidden}
+.sheet{position:fixed;inset:0;z-index:40}
+.sheet-bg{position:absolute;inset:0;background:rgba(15,22,16,.45)}
+.sheet-panel{position:absolute;top:0;right:0;bottom:0;width:min(720px,100%);background:var(--bg);display:flex;flex-direction:column;box-shadow:-20px 0 40px rgba(0,0,0,.18);animation:sheetin .18s ease-out}
+@keyframes sheetin{from{transform:translateX(24px);opacity:.6}to{transform:none;opacity:1}}
+.sheet-head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;padding:18px 24px 14px;border-bottom:1px solid var(--line);background:var(--surface)}
+.sheet-head h2{margin:2px 0 0;font-size:19px;overflow-wrap:anywhere}
+.sheet-body{flex:1;overflow-y:auto;padding:16px 24px 24px;display:flex;flex-direction:column;gap:14px}
+.sheet-foot{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:12px 24px calc(12px + env(safe-area-inset-bottom,0px));border-top:1px solid var(--line);background:var(--surface)}
+.iconbtn{all:unset;cursor:pointer;width:34px;height:34px;border-radius:8px;display:grid;place-items:center;color:var(--muted);font-size:15px}
+.iconbtn:hover{background:var(--sunk);color:var(--ink)}.iconbtn.danger:hover{background:var(--danger-bg);color:var(--danger)}
+.iconbtn:focus-visible{outline:2px solid var(--focus)}
+.psec{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:16px;display:flex;flex-direction:column;gap:12px}
+.psec h3{margin:0;font-size:14px;letter-spacing:.02em}
+.psec .fh{margin:0}
+.pp-top{display:flex;gap:16px;align-items:flex-start}
+.pp-photo{flex:0 0 116px;width:116px;height:116px;border-radius:10px;border:1px dashed var(--line);background:#fff;display:grid;place-items:center;cursor:pointer;overflow:hidden;color:var(--muted);font-size:13px;font-weight:600}
+.pp-photo img{width:100%;height:100%;object-fit:contain}
+.pp-photo:hover{border-color:var(--accent)}
+.helper{display:flex;align-items:center;flex-wrap:wrap;gap:8px;font-size:13px;color:var(--muted);background:var(--sunk);border-radius:8px;padding:8px 10px}
+.helper input{width:56px;padding:5px 8px}.helper b{margin-left:auto;color:var(--accent-ink);font-weight:700}
+.vtable,.otable{display:flex;flex-direction:column;border:1px solid var(--line);border-radius:10px;overflow:hidden}
+.vth,.vtr{display:grid;grid-template-columns:1fr 1fr 1fr 1.3fr 34px;gap:8px;align-items:center;padding:8px 10px}
+.oth,.otr{display:grid;grid-template-columns:1fr 2fr 1.2fr 34px;gap:8px;align-items:center;padding:8px 10px}
+.vth,.oth{background:var(--sunk);font-size:11.5px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--muted)}
+.vtr,.otr{border-top:1px solid var(--line)}
+.vtr .vspec{grid-column:1/5}.vtr .vspec input{font-size:13px}
+.vc{display:flex;flex-direction:column;gap:3px;min-width:0}.vcap{display:none;font-size:11px;font-weight:600;color:var(--muted)}.vcap-all{display:block}
+body:has(#savebar:not([hidden])) .toast{bottom:84px}
+@media (max-width:760px){body:has(#savebar:not([hidden])) .toast{bottom:calc(150px + env(safe-area-inset-bottom,0px))!important}}
+.vtr input,.otr input{min-width:0}
+@media (max-width:760px){
+  .sheet-panel{width:100%}
+  .sheet-head,.sheet-body,.sheet-foot{padding-left:16px;padding-right:16px}
+  .sheet-foot{padding-bottom:calc(12px + env(safe-area-inset-bottom,0px))}
+  .pp-top{flex-direction:column}.pp-photo{width:100%;flex-basis:auto;height:160px}
+  .vcap{display:block}.vtr .iconbtn,.otr .iconbtn{align-self:end}
+  .vth{display:none}.vtr{grid-template-columns:1fr 1fr 34px}
+  .vtr>:nth-child(1){grid-area:1/1}.vtr>:nth-child(2){grid-area:1/2}.vtr>:nth-child(5){grid-area:1/3}
+  .vtr>:nth-child(3){grid-area:2/1}.vtr>:nth-child(4){grid-area:2/2}.vtr>:nth-child(6){grid-area:3/1/4/4}
+  .oth{display:none}.otr{grid-template-columns:1fr 34px}
+  .otr>:nth-child(1){grid-area:1/1}.otr>:nth-child(4){grid-area:1/2}.otr>:nth-child(2){grid-area:2/1/3/3}.otr>:nth-child(3){grid-area:3/1/4/3}
+}
 /* orders */
 .seg{display:inline-flex;background:var(--sunk);border:1px solid var(--line);border-radius:8px;padding:3px;gap:2px}
 .seg button{border:0;background:none;padding:6px 12px;border-radius:6px;font-weight:600;cursor:pointer;color:var(--muted)}
@@ -1187,29 +1253,34 @@ function applyParsed(res,d,done,asks){
 function cmdLogHTML(){const L=S.ed?.cmdLog;if(!L)return"";
   return `<ul class="cmdlog">${L.done.map(x=>`<li class="ok">${esc(x)}</li>`).join("")}${L.asks.map(x=>`<li class="ask">${esc(x)}</li>`).join("")}</ul>${L.help?`<div class="cmdhelp">${CMD_HELP}</div>`:""}`}
 const AIX={ready:()=>!!SAMPLE,json:p=>SAMPLE.json(p,{modelTier:"default"})};
+/* AI is the fallback for lines the built-in matcher couldn't place, so keep each call small:
+   only the products/customers that share words with the text, one compact line each, short reply keys. */
+const AI_STOP=new Set("light lights led leds lamp series the and for with pcs nos pc pieces piece mr sir sb sahab please plz of to in on at x".split(" "));
+const aiWords=t=>new Set(String(t||"").toLowerCase().replace(/[’']/g,"").split(/[^a-z0-9]+/).filter(w=>w.length>1&&!/^\d+$/.test(w)&&!AI_STOP.has(w)));
+function aiShortlist(text,max=12){
+  const tw=aiWords(text);if(!tw.size)return{prods:[],custs:[]};
+  const score=hay=>{const hw=aiWords(hay);let n=0;for(const w of tw)if(hw.has(w))n+=w.length>3?2:1;return n};
+  const prods=S.products.map(p=>[p,score(`${p.name} ${p.series||""} ${p.category||""} ${p.keywords||""} ${p.model||""} ${(p.variants||[]).map(v=>`${v.label} ${v.model||""}`).join(" ")}`)]).filter(x=>x[1]>0).sort((a,b)=>b[1]-a[1]).slice(0,max).map(x=>x[0]);
+  const custs=S.customers.map(c=>[c,score(`${c.name} ${c.attn||""}`)]).filter(x=>x[1]>0).sort((a,b)=>b[1]-a[1]).slice(0,4).map(x=>x[0]);
+  return{prods,custs};
+}
+const aiProdLine=p=>[p.id,p.name,p.spec?p.spec.replace(/\s*·\s*/g,", "):"",num(p.price)?"Rs"+num(p.price):"",
+  hasVar(p)?"sizes "+p.variants.map(v=>`${v.id}=${v.label}`).join(","):"",
+  (p.options||[]).map(o=>`${o.name}:${o.values.join("/")}`).join(" ")].filter(Boolean).join(" | ");
 async function aiItems(clauses,d){
-  const done=[],asks=[];
-  const cat=S.products.map(p=>({id:p.id,name:p.name,specs:p.spec||"",model:p.model||"",keywords:p.keywords||"",price:num(p.price),unit:p.unit||"Pcs",
-    ...(hasVar(p)?{sizes:p.variants.map(v=>({id:v.id,label:v.label,model:v.model||"",spec:v.spec||""}))}:{}),
-    ...((p.options||[]).length?{options:p.options.map(o=>({name:o.name,values:o.values,onlyForSizes:o.only||[]}))}:{})}));
-  const cus=S.customers.map(c=>({id:c.id,name:c.name,attn:c.attn||""}));
-  const prompt=`You turn shorthand order notes from a lighting company in Multan, Pakistan into structured data. Do not do any arithmetic or totals.
-CATALOGUE (JSON): ${JSON.stringify(cat)}
-SAVED CUSTOMERS (JSON): ${JSON.stringify(cus)}
-ORDER TEXT: """${clauses.join(", ")}"""
-Rules:
-- Match each product mention to a catalogue id by series name, keyword, wattage, model or description. Use null productId only if nothing in the catalogue fits; then give a clean description.
-- If the product has "sizes", return the matching size id as sizeId (by wattage, label or model code), or null if no size is written. Never guess a size.
-- If the product has "options", return the chosen values in "options" using the exact option names and values listed (e.g. "warm" = 3000K, "cool white"/"daylight" = 6000K). Leave out options that aren't written.
-- A small number right before a product is the quantity. A larger number (usually 3+ digits) after a product is the unit rate in PKR. Wattage (e.g. 12w) and colour temperature (e.g. 4000k) are not quantities or rates. If no rate is written, rate is null. If no quantity is written, qty is null.
-- If the text names a person and/or business, match a saved customer (fuzzy) and return its customerId; otherwise newCustomer with a Title Case company name and attn like "Mr. Mashood". If no customer is mentioned, both are null.
-Reply with JSON only, exactly this shape:
-{"customerId": string|null, "newCustomer": {"name": string, "attn": string}|null, "items": [{"productId": string|null, "sizeId": string|null, "options": {"<option name>": "<value>"}, "description": string, "qty": number|null, "rate": number|null}]}`;
+  const done=[],asks=[],text=clauses.join(", ");
+  const {prods,custs}=aiShortlist(text);
+  const prompt=`Parse a lighting shop order note into JSON. No maths.
+PRODUCTS (id | name | spec | price | sizes | options):
+${prods.map(aiProdLine).join("\n")||"(none match: use p:null and a clean d)"}
+${custs.length?"CUSTOMERS (id | name | attn):\n"+custs.map(c=>[c.id,c.name,c.attn||""].join(" | ")).join("\n")+"\n":""}TEXT: ${text}
+Rules: small number before a product = qty; 3+ digit number after it = unit rate PKR; wattage/kelvin are not qty or rate. Size id only if the size is written. Options only if written, exact values (warm=3000K, cool white=6000K). Customer: saved id if it matches, else new name+attn, else null.
+Reply JSON only: {"c":id|null,"nc":{"n":name,"a":attn}|null,"i":[{"p":id|null,"s":sizeId|null,"o":{option:value},"d":description,"q":qty|null,"r":rate|null}]}`;
   try{
-    const r=await AIX.json(prompt);
+    const r=await AIX.json(prompt,{maxTokens:120+90*clauses.length});
     if(!r||typeof r!=="object")throw new Error("The AI reply couldn't be read.");
-    applyParsed({customer:r.customerId?{id:r.customerId}:r.newCustomer?.name?{name:r.newCustomer.name,attn:r.newCustomer.attn}:null,
-      items:(Array.isArray(r.items)?r.items:[]).map(x=>({...x,variantId:x.sizeId||null,options:x.options||{}}))},d,done,asks);
+    applyParsed({customer:r.c?{id:r.c}:r.nc?.n?{name:r.nc.n,attn:r.nc.a||""}:null,
+      items:(Array.isArray(r.i)?r.i:[]).map(x=>({productId:x.p||null,variantId:x.s||null,options:x.o||{},description:x.d||"",qty:x.q??null,rate:x.r??null}))},d,done,asks);
     if(!done.length&&!asks.length)asks.push("No items found in that text.");
   }catch(e){
     asks.push((e?.code==="rate_limited"?"AI is busy.":e?.message||"AI request failed.")+" Used built-in matching instead.");
@@ -1492,7 +1563,7 @@ async function makePDF(d){
 /* ---------- Catalogue ---------- */
 function vProducts(){
   $("#view").innerHTML=`<div class="spread" style="margin-bottom:16px"><div><div class="eyebrow">Catalogue</div><h1>Products</h1></div><button class="btn pri" data-act="newprod">Add product</button></div>
-  <div class="two"><div id="plist"></div><div class="formside" id="pform"></div></div>`;renderPList();renderPForm();
+  <div id="plist"></div><div class="sheet" id="pform" hidden></div>`;renderPList();renderPForm();
 }
 const catOf=p=>String(p.category||"").trim()||"Uncategorised";
 const serOf=p=>String(p.series||"").trim();
@@ -1534,27 +1605,57 @@ function formMargin(p){const rows=hasVar(p)?(p.variants||[]).map(v=>[num(v.price
   const ok=rows.filter(([pr,c])=>pr&&c);if(!ok.length)return"";const pc=ok.map(([pr,c])=>(pr-c)/pr*100);const lo=Math.round(Math.min(...pc)*10)/10,hi=Math.round(Math.max(...pc)*10)/10;
   return `Margin ${lo===hi?pctTxt(lo):pctTxt(lo)+" to "+pctTxt(hi)}`}
 function renderPForm(){const el=$("#pform");if(!el)return;const p=S.pform;
-  if(!p){el.innerHTML=`<div class="card muted" style="font-size:13px">Pick a product to edit, or add a new one. The <b>shorthand</b> field teaches quick entry what you call it, e.g. “trail, step light”.</div>`;return}
-  el.innerHTML=`<div class="card stack"><h2>${p.id?"Edit product":"New product"}</h2>
-   <div class="photo-pick">${p.img?`<img src="${esc(p.img)}" alt="">`:`<div class="ph0">No photo</div>`}<div class="stack" style="gap:6px"><label class="btn sm" style="display:inline-block">Upload photo<input type="file" accept="image/*" id="pPhoto" hidden></label>${p.img?`<button class="btn sm ghost" data-act="rmphoto">Remove photo</button>`:""}<span id="pPhotoMsg" class="muted" style="font-size:12px"></span></div></div>
-   <label class="f">Name on document<input data-pf="name" value="${esc(p.name)}" placeholder="LED Wall / Step Light – Trail Series"></label>
-   <div class="g2"><label class="f">Category (folder)<input data-pf="category" list="catlist" value="${esc(p.category||"")}" placeholder="e.g. SMD, COB, Strip"></label><label class="f">Series<input data-pf="series" list="serlist" value="${esc(p.series||"")}" placeholder="e.g. Rayzen, Linea"></label></div>
-   <datalist id="catlist">${[...new Set(S.products.map(x=>String(x.category||"").trim()).filter(Boolean))].sort(byName).map(x=>`<option value="${esc(x)}">`).join("")}</datalist>
-   <datalist id="serlist">${[...new Set(S.products.filter(x=>!p.category||String(x.category||"").trim()===String(p.category).trim()).map(x=>String(x.series||"").trim()).filter(Boolean))].sort(byName).map(x=>`<option value="${esc(x)}">`).join("")}</datalist>
-   <label class="f">Specs line<input data-pf="spec" value="${esc(p.spec)}" placeholder="3W · 140 lm · CRI >80 · IP65"></label>
-   <label class="f">Warranty<input data-pf="warranty" list="wlist" value="${esc(p.warranty||"")}" placeholder="e.g. 2 years replacement warranty"><span class="muted" style="font-weight:400">Printed only when it's 1 year or more. Leave blank or under a year and it stays off the document.</span></label>
-   <div class="g3"><label class="f">Sale price (PKR)<input data-pf="price" inputmode="decimal" value="${esc(p.price)}"></label><label class="f">Cost price<input data-pf="cost" inputmode="decimal" value="${esc(p.cost??"")}" placeholder="Private"></label><label class="f">Unit<input data-pf="unit" value="${esc(p.unit||"Pcs")}"></label></div>
-   <label class="f">Supplier <span class="muted" style="font-weight:400">(purchase orders go here)</span><select data-pf="supplierId"><option value="">— None —</option>${S.suppliers.map(x=>`<option value="${esc(x.id)}" ${supOf(p)?.id===x.id?"selected":""}>${esc(x.name)}</option>`).join("")}</select></label>
-   <div class="row" style="gap:8px;font-size:12px"><span class="muted">Fill cost from sale price minus</span><input id="costPct" inputmode="decimal" value="${esc(p.supplierDisc??30)}" style="width:60px;padding:4px 8px" aria-label="Supplier discount percent"><span class="muted">%</span><button class="btn sm" data-act="costfill">Fill costs</button><span class="muted" id="pmargin">${formMargin(p)}</span></div>
-   <div class="g2"><label class="f">Model / code<input data-pf="model" value="${esc(p.model)}"></label><label class="f">Shorthand words<input data-pf="keywords" value="${esc(p.keywords)}" placeholder="trail, step"></label></div>
-   <div class="vsect"><div class="spread"><h3>Sizes</h3><button class="btn sm" data-act="addvar">Add size</button></div>
-     <div class="muted hint">For a range like 5W / 7W / 12W. Each size has its own price, code and spec line. Leave empty for a single-size product.${(p.variants||[]).length?" The price above is used only for sizes with no price.":""}</div>
-     ${(p.variants||[]).map((v,i)=>`<div class="vrow"><input data-vf="${i}.label" value="${esc(v.label)}" placeholder="Size · 12W" aria-label="Size name"><input data-vf="${i}.price" inputmode="decimal" value="${esc(v.price)}" placeholder="Price" aria-label="Price"><input data-vf="${i}.cost" inputmode="decimal" value="${esc(v.cost??"")}" placeholder="Cost" aria-label="Cost price"><input data-vf="${i}.model" value="${esc(v.model)}" placeholder="Code" aria-label="Code"><button class="btn sm ghost danger" data-act="rmvar" data-i="${i}" aria-label="Remove size">✕</button><input class="vspec" data-vf="${i}.spec" value="${esc(v.spec)}" placeholder="Spec line · 12W · 1080 lm · Cut-out Φ90-100" aria-label="Spec line"></div>`).join("")}</div>
-   <div class="vsect"><div class="spread"><h3>Options chosen per order</h3><button class="btn sm" data-act="addopt">Add option</button></div>
-     <div class="muted hint">e.g. CCT: 3000K, 4000K, 6000K · Finish: White, Black. Leave “only for sizes” empty if every size has it.</div>
-     ${(p.options||[]).map((o,i)=>`<div class="orow"><input data-of="${i}.name" value="${esc(o.name)}" placeholder="Option · CCT" aria-label="Option name"><input data-of="${i}.values" value="${esc(o.values)}" placeholder="Choices · 3000K, 4000K, 6000K" aria-label="Choices"><input data-of="${i}.only" value="${esc(o.only)}" placeholder="Only for sizes (optional) · 5W, 7W" aria-label="Only for sizes"><button class="btn sm ghost danger" data-act="rmopt" data-i="${i}" aria-label="Remove option">✕</button></div>`).join("")}</div>
-   <div class="row"><button class="btn pri" data-act="saveprod">Save product</button><button class="btn ghost" data-act="cancelprod">Cancel</button>
-   ${p.id?`<button class="btn sm danger ${S.armed===p.id?"armed":""}" data-act="delprod" style="margin-left:auto">${S.armed===p.id?"Confirm delete":"Delete"}</button>`:""}</div></div>`}
+  if(!p){el.hidden=true;el.innerHTML="";document.body.classList.remove("sheet-open");return}
+  const keep=el.querySelector(".sheet-body")?.scrollTop||0,first=el.hidden;
+  const cats=[...new Set(S.products.map(x=>String(x.category||"").trim()).filter(Boolean))].sort(byName);
+  const sers=[...new Set(S.products.filter(x=>!p.category||String(x.category||"").trim()===String(p.category).trim()).map(x=>String(x.series||"").trim()).filter(Boolean))].sort(byName);
+  const vs=p.variants||[],os=p.options||[];
+  el.hidden=false;document.body.classList.add("sheet-open");
+  el.innerHTML=`<div class="sheet-bg" data-act="cancelprod"></div>
+  <aside class="sheet-panel" role="dialog" aria-modal="true" aria-label="${p.id?"Edit product":"New product"}">
+   <header class="sheet-head"><div><div class="eyebrow">${p.id?"Edit product":"New product"}</div><h2>${esc(p.name||"Untitled product")}</h2></div><button class="iconbtn" data-act="cancelprod" aria-label="Close">✕</button></header>
+   <div class="sheet-body">
+    <section class="psec"><h3>Photo &amp; name</h3>
+     <div class="pp-top"><label class="pp-photo" for="pPhoto">${p.img?`<img src="${esc(p.img)}" alt="">`:`<span>Add photo</span>`}<input type="file" accept="image/*" id="pPhoto" hidden></label>
+      <div class="stack" style="gap:12px;flex:1;min-width:0">
+       <label class="f">Name on documents<input data-pf="name" value="${esc(p.name)}" placeholder="LED Wall / Step Light – Trail Series"></label>
+       <div class="g2"><label class="f">Category <span class="muted fh">folder</span><input data-pf="category" list="catlist" value="${esc(p.category||"")}" placeholder="e.g. COB"></label><label class="f">Series<input data-pf="series" list="serlist" value="${esc(p.series||"")}" placeholder="e.g. Linea"></label></div>
+      </div></div>
+     <div class="row" style="gap:8px">${p.img?`<button class="btn sm ghost" data-act="rmphoto">Remove photo</button>`:""}<span id="pPhotoMsg" class="muted fh"></span></div>
+     <datalist id="catlist">${cats.map(x=>`<option value="${esc(x)}">`).join("")}</datalist><datalist id="serlist">${sers.map(x=>`<option value="${esc(x)}">`).join("")}</datalist>
+    </section>
+    <section class="psec"><h3>Details</h3>
+     <label class="f">Spec line <span class="muted fh">printed under the name</span><input data-pf="spec" value="${esc(p.spec)}" placeholder="3W · 140 lm · CRI >80 · IP65"></label>
+     <div class="g2"><label class="f">Warranty<input data-pf="warranty" value="${esc(p.warranty||"")}" placeholder="2 years replacement warranty"></label><label class="f">Unit<input data-pf="unit" value="${esc(p.unit||"Pcs")}" placeholder="Pcs"></label></div>
+     <p class="muted fh">Warranty prints only when it's 1 year or more.</p>
+    </section>
+    <section class="psec"><h3>Price</h3>
+     <div class="g2"><label class="f">Sale price <span class="muted fh">PKR</span><input data-pf="price" inputmode="decimal" value="${esc(p.price)}"></label><label class="f">Cost price <span class="muted fh">private</span><input data-pf="cost" inputmode="decimal" value="${esc(p.cost??"")}"></label></div>
+     <label class="f">Supplier <span class="muted fh">purchase orders go here</span><select data-pf="supplierId"><option value="">None</option>${S.suppliers.map(x=>`<option value="${esc(x.id)}" ${supOf(p)?.id===x.id?"selected":""}>${esc(x.name)}</option>`).join("")}</select></label>
+     <div class="helper"><span>Cost = sale price −</span><input id="costPct" inputmode="decimal" value="${esc(p.supplierDisc||30)}" aria-label="Supplier discount percent"><span>%</span><button class="btn sm" data-act="costfill">Apply</button><b id="pmargin">${formMargin(p)}</b></div>
+    </section>
+    <section class="psec"><div class="spread"><h3>Sizes</h3><button class="btn sm" data-act="addvar">+ Add size</button></div>
+     ${vs.length?`<div class="vtable"><div class="vth"><span>Size</span><span>Sale price</span><span>Cost</span><span>Model code</span><span></span></div>
+      ${vs.map((v,i)=>`<div class="vtr"><label class="vc"><span class="vcap">Size</span><input data-vf="${i}.label" value="${esc(v.label)}" placeholder="12W"></label><label class="vc"><span class="vcap">Sale price</span><input data-vf="${i}.price" inputmode="decimal" value="${esc(v.price)}" placeholder="—"></label><label class="vc"><span class="vcap">Cost</span><input data-vf="${i}.cost" inputmode="decimal" value="${esc(v.cost??"")}" placeholder="—"></label><label class="vc"><span class="vcap">Model code</span><input data-vf="${i}.model" value="${esc(v.model)}" placeholder="—"></label><button class="iconbtn danger" data-act="rmvar" data-i="${i}" aria-label="Remove size">✕</button>
+        <label class="vc vspec"><span class="vcap vcap-all">Spec line for this size</span><input data-vf="${i}.spec" value="${esc(v.spec)}" placeholder="12W · 1080 lm · Cut-out Ø90"></label></div>`).join("")}</div>
+      <p class="muted fh">A size with no sale price uses the price above.</p>`:`<p class="muted fh">Only for products sold in several sizes (5W / 7W / 12W). Each size gets its own price, cost and code.</p>`}
+    </section>
+    <section class="psec"><div class="spread"><h3>Options</h3><button class="btn sm" data-act="addopt">+ Add option</button></div>
+     ${os.length?`<div class="otable"><div class="oth"><span>Option</span><span>Choices <span class="muted">comma separated</span></span><span>Only for sizes</span><span></span></div>
+      ${os.map((o,i)=>`<div class="otr"><label class="vc"><span class="vcap">Option</span><input data-of="${i}.name" value="${esc(o.name)}" placeholder="CCT"></label><label class="vc"><span class="vcap">Choices</span><input data-of="${i}.values" value="${esc(o.values)}" placeholder="3000K, 4000K, 6000K"></label><label class="vc"><span class="vcap">Only for sizes</span><input data-of="${i}.only" value="${esc(o.only)}" placeholder="All sizes"></label><button class="iconbtn danger" data-act="rmopt" data-i="${i}" aria-label="Remove option">✕</button></div>`).join("")}</div>`
+      :`<p class="muted fh">Choices picked per order, like colour temperature or finish.</p>`}
+    </section>
+    <section class="psec"><h3>Quick entry</h3>
+     <div class="g2"><label class="f">Model / code<input data-pf="model" value="${esc(p.model)}"></label><label class="f">Shorthand words <span class="muted fh">what you type</span><input data-pf="keywords" value="${esc(p.keywords)}" placeholder="trail, step light"></label></div>
+    </section>
+   </div>
+   <footer class="sheet-foot">${p.id?`<button class="btn ghost danger ${S.armed===p.id?"armed":""}" data-act="delprod">${S.armed===p.id?"Confirm delete":"Delete"}</button>`:"<span></span>"}
+    <div class="row"><button class="btn ghost" data-act="cancelprod">Cancel</button><button class="btn pri" data-act="saveprod">Save product</button></div></footer>
+  </aside>`;
+  const body=el.querySelector(".sheet-body");if(body&&!first)body.scrollTop=keep;
+  if(first)setTimeout(()=>el.querySelector('[data-pf="name"]')?.focus({preventScroll:true}),60);
+}
+document.addEventListener("keydown",e=>{if(e.key==="Escape"&&S.pform&&S.view==="products"){S.pform=null;renderPForm()}});
 
 /* ---------- Customers ---------- */
 function vCustomers(){const sup=S.cmode==="suppliers";
@@ -1598,38 +1699,55 @@ const SF=[["Company",[["company","Company name"],["tagline","Tagline"],["address
   ["Bank details",[["bankTitle","Account title"],["bankName","Bank & branch"],["bankAcc","Account no."],["iban","IBAN"]]],
   ["Signatory",[["signName","Signatory name"],["signTitle","Title under signature"]]],
   ["Defaults",[["gstRate","GST rate %"],["quoteValidDays","Quotation valid for (days)"]]]];
-async function vSettings(){
-  const s=S.settings,y=todayISO().slice(0,4);S.sDirty=false;
-  $("#view").innerHTML=`<div class="spread" style="margin-bottom:16px"><div><div class="eyebrow">Settings</div><h1>Company &amp; document defaults</h1></div><button class="btn pri" data-act="savesettings">Save settings</button></div>
-  <div class="two"><div class="stack">${SF.map(([h,fs])=>`<div class="card stack"><h2>${h}</h2><div class="g2">${fs.map(([k,l])=>`<label class="f">${l}<input data-sf="${k}" value="${esc(s[k])}"></label>`).join("")}</div></div>`).join("")}
-    <div class="card stack"><h2>Wording</h2>
-      <label class="f">Default GST on new documents<select data-sf="defaultTax"><option value="excl" ${s.defaultTax==="excl"?"selected":""}>Excluded (shows “Excl.”)</option><option value="add" ${s.defaultTax==="add"?"selected":""}>Add GST</option></select></label>
-      <label class="f">Default notes<textarea data-sf="notesDefault" rows="2">${esc(s.notesDefault)}</textarea></label>
-      <label class="f">Quotation terms (one per line)<textarea data-sf="termsQT" rows="4">${esc(s.termsQT)}</textarea></label>
-      <label class="f">Invoice terms (one per line)<textarea data-sf="termsINV" rows="4">${esc(s.termsINV)}</textarea></label>
-      <label class="f">Delivery note receiving instructions<textarea data-sf="dnInstructions" rows="4">${esc(s.dnInstructions)}</textarea></label></div></div>
-   <div class="stack formside"><div class="card stack" id="logoCard"><div class="spread"><h2 style="margin:0">Company logo</h2>${s.logo?`<button class="btn sm ghost" data-act="resetlogo">Use original</button>`:""}</div>
-      <label class="logo-drop" id="logoDrop" for="logoFile"><span class="logo-paper"><img id="logoImg" src="${esc(s.logo||LOGO)}" alt="Current logo"></span>
+/* Settings: one section at a time. Platform builds add sections through SETTINGS_EXTRA. */
+const setSections=()=>[
+  {id:"company",label:"Company",sub:"Name, contact and bank details printed on every document."},
+  {id:"brand",label:"Logo & signature",sub:"How your documents are branded and signed."},
+  {id:"docs",label:"Documents",sub:"Tax, validity, notes and terms used on new documents."},
+  {id:"numbers",label:"Numbering",sub:"The last number used this year for each document type."},
+  {id:"catalogue",label:"Products & costs",sub:"Cost prices and loading a product file."},
+  ...(typeof SETTINGS_EXTRA!=="undefined"?SETTINGS_EXTRA:[])];
+const sfIn=(k,l,o={})=>`<label class="f${o.full?" full":""}">${l}${o.hint?` <span class="muted fh">${o.hint}</span>`:""}<input data-sf="${k}" value="${esc(S.settings[k]??"")}"${o.ph?` placeholder="${esc(o.ph)}"`:""}${o.num?` inputmode="decimal"`:""}></label>`;
+const sfTa=(k,l,rows,hint)=>`<label class="f">${l}${hint?` <span class="muted fh">${hint}</span>`:""}<textarea data-sf="${k}" rows="${rows}">${esc(S.settings[k]??"")}</textarea></label>`;
+const sCard=(title,body,sub)=>`<div class="card stack scard"><div><h3>${title}</h3>${sub?`<p class="muted ssub">${sub}</p>`:""}</div>${body}</div>`;
+function settingsBody(id){
+  const s=S.settings,y=todayISO().slice(0,4);
+  if(id==="company")return sCard("Business",`<div class="g2">${sfIn("company","Company name")}${sfIn("tagline","Tagline")}${sfIn("address","Address",{full:true})}${sfIn("phone","Phone")}${sfIn("email","Email")}${sfIn("website","Website")}</div>`)
+    +sCard("Tax registration",`<div class="g2">${sfIn("ntn","NTN",{ph:"Leave blank to hide"})}${sfIn("strn","STRN",{ph:"Leave blank to hide"})}</div>`,"Printed under your company name only when filled in.")
+    +sCard("Bank details",`<div class="g2">${sfIn("bankTitle","Account title")}${sfIn("bankName","Bank & branch")}${sfIn("bankAcc","Account no.")}${sfIn("iban","IBAN")}</div>`,"Shown on quotations and invoices so customers can pay.");
+  if(id==="brand")return sCard("Logo",`<label class="logo-drop" id="logoDrop" for="logoFile"><span class="logo-paper"><img id="logoImg" src="${esc(s.logo||LOGO)}" alt="Current logo"></span>
         <span class="logo-cta"><b>Drop your logo here</b> or tap to choose a PNG or JPG</span><input type="file" accept="image/png,image/jpeg" id="logoFile" hidden></label>
       <div id="logoInfo" class="logo-info">Checking resolution…</div>
-      <ul class="tips"><li>PNG with a white or transparent background works best.</li><li>The header slot is 2.2 : 1 (wide). Square logos still fit, just smaller.</li><li>About 500 px wide or more prints sharp at 300 dpi. The file is used as-is, never re-compressed.</li></ul></div>
-    <div class="card stack"><div class="spread"><h2 style="margin:0">Signature</h2>${s.signImg?`<button class="btn sm ghost danger ${S.armed==="delsign"?"armed":""}" data-act="resetsign">${S.armed==="delsign"?"Confirm remove":"Remove"}</button>`:""}</div>
-      <label class="logo-drop" for="signFile"><span class="logo-paper" style="min-height:70px">${s.signImg?`<img src="${esc(s.signImg)}" alt="Your signature" style="max-height:70px">`:`<span class="muted" style="font-size:13px">No signature yet</span>`}</span>
-        <span class="logo-cta"><b>${s.signImg?"Replace signature":"Add your signature"}</b>: a photo or PNG of it on white paper</span><input type="file" accept="image/png,image/jpeg" id="signFile" hidden></label>
-      <label class="slashtog"><input type="checkbox" id="signOn" ${s.signOn!==false?"checked":""}><span><b>Sign quotations, invoices and purchase orders</b><br><span class="muted">Printed above the signatory line. Delivery notes stay unsigned for the driver and customer.</span></span></label>
-      <div class="muted" style="font-size:12px">The background is removed automatically, even a grey checkerboard from a background-remover.</div></div>
-    <div class="card stack"><h2>Cost prices</h2>
-      <label class="slashtog"><input type="checkbox" id="showCosts" ${s.showCosts!==false?"checked":""}><span><b>Show costs and margin</b><br><span class="muted">Turn off on a phone a salesperson uses. Costs never print on documents either way.</span></span></label></div>
-    <div class="card stack"><h2>Import products</h2>
-      <div class="muted" style="font-size:13px">Load a product file (.json) prepared for you. Products with the same ID are updated; everything else is kept.</div>
-      <div class="row"><label class="btn">Choose product file<input type="file" accept="application/json,.json" id="importProducts" hidden></label><span id="importMsg" class="muted" style="font-size:13px"></span></div></div>
-    <div class="card stack"><h2>Numbering ${y}</h2><div class="muted" style="font-size:13px">Last number used this year. The next document gets this + 1.</div>
-      <div class="g3">${["QT","INV","DN","PO"].map(t=>`<label class="f">RL-${t}<input id="cnt-${t}" inputmode="numeric" value="…"></label>`).join("")}</div>
-      <button class="btn" data-act="savecounters">Update numbering</button></div></div></div>`;
-  logoQuality();
-  for(const t of["QT","INV","DN","PO"]){const v=await counterGet(`${t}-${y}`);const el=$("#cnt-"+t);if(el)el.value=v}
+      <div class="row">${s.logo?`<button class="btn sm ghost" data-act="resetlogo">Use original logo</button>`:""}<span class="muted fh">A wide PNG on white or transparent, about 500 px wide or more, prints sharpest.</span></div>`)
+    +sCard("Signature",`<label class="logo-drop" for="signFile"><span class="logo-paper" style="min-height:70px">${s.signImg?`<img src="${esc(s.signImg)}" alt="Your signature" style="max-height:70px">`:`<span class="muted" style="font-size:13px">No signature yet</span>`}</span>
+        <span class="logo-cta"><b>${s.signImg?"Replace signature":"Add your signature"}</b>: a photo or PNG of it on white paper. The background is removed automatically.</span><input type="file" accept="image/png,image/jpeg" id="signFile" hidden></label>
+      <label class="slashtog"><input type="checkbox" id="signOn" ${s.signOn!==false?"checked":""}><span><b>Sign quotations, invoices and purchase orders</b><br><span class="muted">Delivery notes stay unsigned for the driver and customer.</span></span></label>
+      <div class="g2">${sfIn("signName","Name under the signature")}${sfIn("signTitle","Title under the signature")}</div>
+      ${s.signImg?`<div><button class="btn sm ghost danger ${S.armed==="delsign"?"armed":""}" data-act="resetsign">${S.armed==="delsign"?"Confirm: remove signature":"Remove signature"}</button></div>`:""}`);
+  if(id==="docs")return sCard("Defaults",`<div class="g2">${sfIn("gstRate","GST rate %",{num:true})}${sfIn("quoteValidDays","Quotation valid for (days)",{num:true})}
+      <label class="f full">GST on new documents<select data-sf="defaultTax"><option value="excl" ${s.defaultTax==="excl"?"selected":""}>Excluded (shows “Excl.”)</option><option value="add" ${s.defaultTax==="add"?"selected":""}>Add GST</option></select></label></div>`)
+    +sCard("Notes & terms",`${sfTa("notesDefault","Default notes",2)}${sfTa("termsQT","Quotation terms",4,"one per line")}${sfTa("termsINV","Invoice terms",4,"one per line")}${sfTa("termsPO","Purchase order terms",4,"one per line")}${sfTa("dnInstructions","Delivery note instructions",4,"one per line")}`);
+  if(id==="numbers")return sCard(`Numbering ${y}`,`<div class="g2">${[["QT","Quotations"],["INV","Invoices"],["DN","Delivery notes"],["PO","Purchase orders"]].map(([t,l])=>`<label class="f">${l} <span class="muted fh">RL-${t}-${y}-</span><input id="cnt-${t}" inputmode="numeric" value="…"></label>`).join("")}</div>
+      <div><button class="btn" data-act="savecounters">Update numbering</button></div>`,"The next document gets this number + 1. Only change it if you're continuing from another system.");
+  if(id==="catalogue")return sCard("Cost prices",`<label class="slashtog"><input type="checkbox" id="showCosts" ${s.showCosts!==false?"checked":""}><span><b>Show costs and margin</b><br><span class="muted">Turn off on a device a salesperson uses. Costs never print on documents either way.</span></span></label>`)
+    +sCard("Import products",`<div class="row"><label class="btn">Choose product file<input type="file" accept="application/json,.json" id="importProducts" hidden></label><span id="importMsg" class="muted" style="font-size:13px"></span></div>`,"Load a product file (.json) prepared for you. Products with the same ID are updated; everything else is kept.");
+  const x=setSections().find(z=>z.id===id);return x&&x.html?x.html():"";
 }
-
+async function vSettings(){
+  const secs=setSections(),cur=secs.find(x=>x.id===S.sset)||secs[0],y=todayISO().slice(0,4);S.sset=cur.id;S.sDirty=false;
+  $("#view").innerHTML=`<div class="spread" style="margin-bottom:16px"><div><div class="eyebrow">Settings</div><h1>${esc(cur.label)}</h1></div></div>
+  <div class="setlayout"><nav class="setnav" aria-label="Settings sections">${secs.map(x=>`<button data-act="sset" data-s="${x.id}" ${x.id===cur.id?`aria-current="page"`:""}>${esc(x.label)}</button>`).join("")}</nav>
+    <div class="setmain"><p class="muted setsub">${esc(cur.sub||"")}</p>${settingsBody(cur.id)}</div></div>
+  <div class="savebar" id="savebar" hidden><span>You have unsaved changes</span><div class="row"><button class="btn ghost" data-act="sdiscard">Discard</button><button class="btn pri" data-act="savesettings">Save changes</button></div></div>`;
+  if(cur.id==="brand")logoQuality();
+  if(cur.id==="numbers")for(const t of["QT","INV","DN","PO"]){const v=await counterGet(`${t}-${y}`);const el=$("#cnt-"+t);if(el)el.value=v}
+  if(cur.after)cur.after();
+}
+async function saveSettingsForm(){
+  const o={...S.settings};document.querySelectorAll("[data-sf]").forEach(i=>o[i.dataset.sf]=i.type==="checkbox"?i.checked:i.value);
+  o.gstRate=num(o.gstRate);o.quoteValidDays=num(o.quoteValidDays)||7;delete o.id;
+  await saveSettings(o);S.settings={...DEFAULTS,...o};S.sDirty=false;const sb=$("#savebar");if(sb)sb.hidden=true;
+}
 async function uploadLogo(file){
   if(!/^image\/(png|jpeg)$/.test(file.type)){toast("Use a PNG or JPG logo");return}
   const info=$("#logoInfo");if(info)info.textContent="Uploading…";
@@ -1648,9 +1766,10 @@ function logoQuality(){
 ["dragleave","drop"].forEach(ev=>document.addEventListener(ev,e=>{const z=e.target.closest?.("#logoDrop");if(z){e.preventDefault();z.classList.remove("over");if(ev==="drop"&&e.dataTransfer?.files?.[0])uploadLogo(e.dataTransfer.files[0])}}));
 /* ---------- events ---------- */
 document.addEventListener("click",async e=>{
-  const nb=e.target.closest("[data-nav]");if(nb){const v=nb.dataset.nav;S.pform=null;S.cform=null;go(v);return}
+  const nb=e.target.closest("[data-nav]");if(nb){const v=nb.dataset.nav;if(S.view==="settings"&&S.sDirty){try{await saveSettingsForm();toast("Settings saved")}catch{}}S.pform=null;S.cform=null;document.body.classList.remove("sheet-open");go(v);return}
   const b=e.target.closest("[data-act]");if(!b)return;const a=b.dataset.act,id=b.dataset.id;
   if(b.tagName==="SELECT")return;
+  if(typeof PLATFORM_ACTS!=="undefined"&&PLATFORM_ACTS[a]){try{await PLATFORM_ACTS[a](b)}catch(err){toast(err?.message||"Something went wrong")}return}
   const findDoc=()=>S.docs.find(d=>d.id===id);
   if(a!=="deldoc"&&a!=="delprod"&&a!=="delcust")S.armed=null;
   switch(a){
@@ -1676,8 +1795,8 @@ document.addEventListener("click",async e=>{
       const sid=c.id||uid("s");c.id=sid;await put("suppliers",sid,{...(S.suppliers.find(x=>x.id===sid)?strip(S.suppliers.find(x=>x.id===sid)):{}),name:c.name,attn:c.attn||"",phone:c.phone||"",email:c.email||"",address:c.address||"",ntn:c.ntn||""});$("#custPick").innerHTML=supOptions(sid);toast("Supplier saved");break}
     {const c=S.ed.doc.customer;if(!c.name.trim()){toast("Enter a customer name first");break}
       const cid=c.id||uid("c");c.id=cid;await put("customers",cid,{name:c.name,attn:c.attn||"",phone:c.phone||"",address:c.address||"",ntn:c.ntn||""});$("#custPick").innerHTML=custOptions(cid);toast("Customer saved");break}
-    case"newprod":S.pform={id:"",name:"",category:S.pcat&&S.pcat!=="Uncategorised"?S.pcat:"",series:S.pser||"",spec:"",warranty:"",price:"",unit:"Pcs",model:"",keywords:"",img:"",variants:[],options:[]};S.armed=null;renderPForm();$("#pform").scrollIntoView({block:"nearest"});break;
-    case"editprod":S.pform=clone(S.products.find(p=>p.id===id));S.pform.variants=S.pform.variants||[];S.pform.options=(S.pform.options||[]).map(o=>({name:o.name||"",values:(o.values||[]).join(", "),only:(o.only||[]).join(", ")}));renderPForm();$("#pform").scrollIntoView({block:"nearest"});break;
+    case"newprod":S.pform={id:"",name:"",category:S.pcat&&S.pcat!=="Uncategorised"?S.pcat:"",series:S.pser||"",spec:"",warranty:"",price:"",unit:"Pcs",model:"",keywords:"",img:"",variants:[],options:[]};S.armed=null;renderPForm();break;
+    case"editprod":S.pform=clone(S.products.find(p=>p.id===id));S.pform.variants=S.pform.variants||[];S.pform.options=(S.pform.options||[]).map(o=>({name:o.name||"",values:(o.values||[]).join(", "),only:(o.only||[]).join(", ")}));renderPForm();break;
     case"addvar":S.pform.variants.push({id:uid("v"),label:"",price:"",model:"",spec:""});renderPForm();document.querySelector(`[data-vf="${S.pform.variants.length-1}.label"]`)?.focus();break;
     case"rmvar":S.pform.variants.splice(+b.dataset.i,1);renderPForm();break;
     case"addopt":S.pform.options.push({name:"",values:"",only:""});renderPForm();document.querySelector(`[data-of="${S.pform.options.length-1}.name"]`)?.focus();break;
@@ -1712,8 +1831,9 @@ document.addEventListener("click",async e=>{
     case"custnew":{const c=S.customers.find(x=>x.id===id);const d=blankDoc("INV");d.customer={id:c.id,name:c.name,attn:c.attn||"",phone:c.phone||"",address:c.address||"",ntn:c.ntn||""};openEditor(d,true);break}
     case"savecustf":{const c=S.cform;if(!c.name.trim()){toast("Enter a name");break}await put("customers",c.id||uid("c"),{name:c.name.trim(),attn:c.attn||"",phone:c.phone||"",address:c.address||"",ntn:c.ntn||""});S.cform=null;renderCForm();toast("Customer saved");break}
     case"delcust":if(S.armed===S.cform?.id){await del("customers",S.cform.id);S.cform=null;S.armed=null;renderCForm();toast("Customer deleted")}else{S.armed=S.cform.id;renderCForm()}break;
-    case"savesettings":{const o={...S.settings};document.querySelectorAll("[data-sf]").forEach(i=>o[i.dataset.sf]=i.value);o.gstRate=num(o.gstRate);o.quoteValidDays=num(o.quoteValidDays)||7;delete o.id;
-      try{await saveSettings(o);S.settings={...DEFAULTS,...o};S.sDirty=false;toast("Settings saved")}catch{toast("Couldn't save settings")}break}
+    case"savesettings":try{await saveSettingsForm();toast("Settings saved")}catch{toast("Couldn't save settings")}break;
+    case"sset":if(S.sDirty){try{await saveSettingsForm();toast("Saved")}catch{toast("Couldn't save settings");break}}S.sset=b.dataset.s;vSettings();window.scrollTo(0,0);break;
+    case"sdiscard":S.sDirty=false;vSettings();break;
     case"resetsign":{if(S.armed!=="delsign"){S.armed="delsign";vSettings();break}S.armed=null;const o={...S.settings,signImg:""};delete o.id;await saveSettings(o);S.settings={...DEFAULTS,...o};vSettings();toast("Signature removed");break}
     case"resetlogo":{const o={...S.settings,logo:""};await saveSettings(o);S.settings=o;vSettings();break}
     case"savecounters":{const y=todayISO().slice(0,4);for(const t of["QT","INV","DN","PO"]){const v=parseInt($("#cnt-"+t).value,10);if(Number.isFinite(v)&&v>=0)await counterSet(`${t}-${y}`,v)}toast("Numbering updated");break}
@@ -1730,7 +1850,7 @@ document.addEventListener("input",e=>{
   if(t.dataset.of&&S.pform){const[i,k]=t.dataset.of.split(".");S.pform.options[+i][k]=t.value;return}
   if(t.dataset.cf&&S.cform){S.cform[t.dataset.cf]=t.value;return}
   if(t.dataset.sf2&&S.sform){S.sform[t.dataset.sf2]=t.value;return}
-  if(t.dataset.sf){S.sDirty=true;return}
+  if(t.dataset.sf){S.sDirty=true;const sb=$("#savebar");if(sb)sb.hidden=false;return}
   if(t.dataset.f&&S.ed){S.ed.dirty=true;const f=t.dataset.f;setPath(S.ed.doc,f,t.type==="checkbox"?t.checked:t.value);
     if(f.startsWith("customer.")&&f!=="customer.id"){/* keep link to saved customer */}
     const m=f.match(/^items\.(\d+)\.(qty|rate)$/);if(m){const el=document.querySelector(`[data-amt="${m[1]}"]`);if(el)el.textContent="PKR "+fmt(lineAmt(S.ed.doc.items[+m[1]]))}
@@ -1739,6 +1859,7 @@ document.addEventListener("input",e=>{
 });
 document.addEventListener("change",async e=>{
   const t=e.target;
+  if(typeof PLATFORM_CHANGE!=="undefined"&&await PLATFORM_CHANGE(t))return;
   if(t.id==="custPick"&&S.ed&&S.ed.doc.type==="PO"){S.ed.dirty=true;const c=S.suppliers.find(x=>x.id===t.value);if(c){S.ed.doc.customer=supParty(c);vEditorKeep()}return}
   if(t.id==="custPick"&&S.ed){S.ed.dirty=true;const c=S.customers.find(x=>x.id===t.value);if(c){S.ed.doc.customer={id:c.id,name:c.name||"",attn:c.attn||"",phone:c.phone||"",address:c.address||"",ntn:c.ntn||""};vEditorKeep()}return}
   if((t.dataset.act==="vsel"||t.dataset.act==="osel")&&S.ed){S.ed.dirty=true;const i=+t.dataset.i,it=S.ed.doc.items[i],p=S.products.find(x=>x.id===it.pid);if(!p)return;
